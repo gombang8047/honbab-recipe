@@ -77,13 +77,13 @@ public class DataInitializer implements CommandLineRunner {
         shortsRepository.saveAll(List.of(s1, s2, s3, s4));
 
         // 2. Ingredients
-        Ingredient iRice = ingredientRepository.save(new Ingredient("밥", "GRAIN"));
-        Ingredient iEgg = ingredientRepository.save(new Ingredient("계란", "DAIRY"));
-        Ingredient iGreenOnion = ingredientRepository.save(new Ingredient("대파", "VEGETABLE"));
-        Ingredient iOysterSauce = ingredientRepository.save(new Ingredient("굴소스", "SAUCE"));
-        Ingredient iOil = ingredientRepository.save(new Ingredient("식용유", "OIL"));
-        Ingredient iKimchi = ingredientRepository.save(new Ingredient("김치", "VEGETABLE"));
-        Ingredient iPork = ingredientRepository.save(new Ingredient("삼겹살", "MEAT"));
+        Ingredient iRice = ingredientRepository.save(Ingredient.builder().name("밥").category("곡류").storageType(Ingredient.StorageType.ROOM_TEMP).build());
+        Ingredient iEgg = ingredientRepository.save(Ingredient.builder().name("계란").category("축산").storageType(Ingredient.StorageType.REFRIGERATED).build());
+        Ingredient iGreenOnion = ingredientRepository.save(Ingredient.builder().name("대파").category("채소").storageType(Ingredient.StorageType.REFRIGERATED).build());
+        Ingredient iOysterSauce = ingredientRepository.save(Ingredient.builder().name("굴소스").category("양념").storageType(Ingredient.StorageType.REFRIGERATED).build());
+        Ingredient iOil = ingredientRepository.save(Ingredient.builder().name("식용유").category("양념").storageType(Ingredient.StorageType.ROOM_TEMP).build());
+        Ingredient iKimchi = ingredientRepository.save(Ingredient.builder().name("김치").category("반찬").storageType(Ingredient.StorageType.REFRIGERATED).build());
+        Ingredient iPork = ingredientRepository.save(Ingredient.builder().name("삼겹살").category("육류").storageType(Ingredient.StorageType.REFRIGERATED).build());
 
         // 3. Recipe 1
         Recipe r1 = Recipe.builder()
