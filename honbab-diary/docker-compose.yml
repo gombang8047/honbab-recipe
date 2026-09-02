@@ -17,7 +17,7 @@ services:
       SPRING_DATASOURCE_USERNAME: honbab
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-honbab1234}
       SPRING_DATA_REDIS_HOST: redis
-      JWT_SECRET: ${JWT_SECRET:-honbab-diary-jwt-secret-key-for-development-only-please-change-in-production}
+      JWT_SECRET: ${JWT_SECRET:-c2VjcmV0S2V5Rm9ySG9uYmFiRGlhcnlBcHBsaWNhdGlvbkRldmVsb3BtZW50T25seTIwMjY=}
     networks:
       - honbab-network
 

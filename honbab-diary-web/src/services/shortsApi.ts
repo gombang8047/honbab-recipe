@@ -69,7 +69,11 @@ export const shortsApi = {
   getFeed: async (page = 0, size = 20): Promise<ShortsItem[]> => {
     try {
       const res: any = await apiClient.get(`/shorts?page=${page}&size=${size}`);
-      return res.data?.content || MOCK_SHORTS;
+      const content = res.data?.content;
+      if (Array.isArray(content) && content.length > 0) {
+        return content;
+      }
+      return MOCK_SHORTS;
     } catch {
       return MOCK_SHORTS;
     }
@@ -78,7 +82,11 @@ export const shortsApi = {
   getTrending: async (): Promise<ShortsItem[]> => {
     try {
       const res: any = await apiClient.get('/shorts/trending');
-      return res.data?.content || MOCK_SHORTS;
+      const content = res.data?.content;
+      if (Array.isArray(content) && content.length > 0) {
+        return content;
+      }
+      return MOCK_SHORTS;
     } catch {
       return MOCK_SHORTS;
     }
@@ -87,7 +95,11 @@ export const shortsApi = {
   getDetail: async (id: number): Promise<ShortsDetail> => {
     try {
       const res: any = await apiClient.get(`/shorts/${id}`);
-      return res.data;
+      if (res.data && res.data.title) {
+        return res.data;
+      }
+      const item = MOCK_SHORTS.find(s => s.id === id) || MOCK_SHORTS[0];
+      return { ...item, videoUrl: `https://www.youtube.com/shorts/${item.youtubeId}`, hasRecipe: true };
     } catch {
       const item = MOCK_SHORTS.find(s => s.id === id) || MOCK_SHORTS[0];
       return { ...item, videoUrl: `https://www.youtube.com/shorts/${item.youtubeId}`, hasRecipe: true };
