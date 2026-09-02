@@ -118,7 +118,7 @@ public class PaymentService {
     }
 
     private String buildItemName(Cart cart) {
-        if (cart.getItems().isEmpty()) return "혼밥일기 장바구니";
+        if (cart.getItems().isEmpty()) return "혼밥레시피 장바구니";
         String firstName = cart.getItems().get(0).getProductMapping().getProductName();
         int remaining = cart.getItems().size() - 1;
         return remaining > 0 ? firstName + " 외 " + remaining + "건" : firstName;

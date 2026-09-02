@@ -3,7 +3,6 @@ FROM gradle:8.8-jdk17 AS builder
 
 WORKDIR /app
 COPY build.gradle settings.gradle ./
-COPY gradle ./gradle
 
 # 의존성 캐싱을 위해 먼저 다운로드
 RUN gradle dependencies --no-daemon || true

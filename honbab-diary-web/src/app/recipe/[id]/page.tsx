@@ -4,10 +4,11 @@ import React, { useEffect, useState } from 'react';
 import { RecipeDetail, recipeApi } from '@/services/recipeApi';
 import { RecipeDetailView } from '@/components/RecipeDetailView';
 import { cartApi } from '@/services/cartApi';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 
 export default function RecipePage() {
   const params = useParams();
+  const router = useRouter();
   const recipeId = Number(params?.id) || 1;
   const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -21,6 +22,7 @@ export default function RecipePage() {
 
   const handleAddToCart = async (id: number) => {
     await cartApi.addFromRecipe(id);
+    router.push('/cart');
   };
 
   if (loading || !recipe) {

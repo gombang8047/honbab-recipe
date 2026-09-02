@@ -1,0 +1,31 @@
+# Node dependencies
+node_modules/
+**/node_modules/
+
+# Next.js build output
+.next/
+**/.next/
+
+# Java / Gradle build output
+.gradle/
+**/.gradle/
+build/
+**/build/
+out/
+**/out/
+
+# IDE / OS files
+.DS_Store
+Thumbs.db
+.idea/
+*.iws
+*.iml
+*.ipr
+.vscode/
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

@@ -1,48 +1,73 @@
 'use client';
 
-import React from 'react';
+import React, { Suspense } from 'react';
+import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
-import { CheckCircle2, Home, Receipt } from 'lucide-react';
+import { CheckCircle2, Home, ShoppingBag, ArrowRight } from 'lucide-react';
 
-export default function PaymentCompletePage() {
+function PaymentCompleteContent() {
+  const searchParams = useSearchParams();
+  const tid = searchParams?.get('tid') || 'T_MOCK_PAYMENT_SUCCESS';
+
   return (
-    <div className="max-w-md mx-auto px-4 py-16 text-center flex flex-col items-center gap-6">
-      <div className="w-20 h-20 bg-emerald-500/20 text-emerald-400 rounded-full flex items-center justify-center border border-emerald-500/40 shadow-xl animate-bounce">
-        <CheckCircle2 size={44} />
+    <div className="max-w-xl mx-auto px-4 py-16 flex flex-col items-center text-center gap-6">
+      <div className="bg-emerald-500/20 text-emerald-400 p-5 rounded-full border border-emerald-500/40 shadow-2xl animate-bounce">
+        <CheckCircle2 size={56} />
       </div>
 
       <div className="flex flex-col gap-2">
-        <h1 className="text-2xl font-bold text-white">카카오페이 결제 완료! 🎉</h1>
-        <p className="text-slate-400 text-xs leading-relaxed">
-          주문하신 자취 레시피 재료가 정상적으로 결제되었습니다.<br />
-          신선하게 배송될 예정입니다!
+        <h1 className="text-3xl font-extrabold text-white tracking-tight">
+          결제가 완료되었습니다! 🎉
+        </h1>
+        <p className="text-slate-400 text-sm">
+          주문하신 재료 배송 정보가 각 마켓(쿠팡/네이버)으로 전송되었습니다.
         </p>
       </div>
 
-      <div className="w-full glass-panel p-5 rounded-2xl flex flex-col gap-3 text-xs text-slate-300 border border-slate-800 text-left">
-        <div className="flex justify-between border-b border-slate-800 pb-2">
-          <span className="text-slate-500">결제 수단</span>
-          <span className="font-semibold text-yellow-400">카카오페이 간편결제</span>
+      <div className="glass-panel p-6 rounded-3xl w-full flex flex-col gap-4 text-left border border-slate-800">
+        <div className="flex justify-between items-center text-xs border-b border-slate-800 pb-3">
+          <span className="text-slate-400">결제 수단</span>
+          <span className="font-semibold text-amber-300">카카오페이 (KakaoPay)</span>
         </div>
-        <div className="flex justify-between border-b border-slate-800 pb-2">
-          <span className="text-slate-500">주문 번호</span>
-          <span className="font-mono text-slate-200">HB-2026-0902-882</span>
+        <div className="flex justify-between items-center text-xs border-b border-slate-800 pb-3">
+          <span className="text-slate-400">거래 번호 (TID)</span>
+          <span className="font-mono text-slate-300">{tid}</span>
         </div>
-        <div className="flex justify-between">
-          <span className="text-slate-500">배송 상태</span>
+        <div className="flex justify-between items-center text-xs">
+          <span className="text-slate-400">배송 상태</span>
           <span className="font-semibold text-emerald-400">상품 준비 중</span>
         </div>
       </div>
 
-      <div className="flex gap-3 w-full">
+      <div className="flex gap-4 w-full pt-4">
         <Link
           href="/"
-          className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-semibold py-3 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg"
+          className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-3.5 px-4 rounded-2xl text-xs flex items-center justify-center gap-2 border border-slate-700 transition-all"
         >
           <Home size={16} />
-          <span>메인 피드로</span>
+          <span>홈으로</span>
+        </Link>
+        <Link
+          href="/cart"
+          className="flex-1 bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 px-4 rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg transition-all"
+        >
+          <ShoppingBag size={16} />
+          <span>장바구니 확인</span>
+          <ArrowRight size={14} />
         </Link>
       </div>
     </div>
+  );
+}
+
+export default function PaymentCompletePage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-xl mx-auto p-12 text-center text-slate-400">
+        결제 완료 정보를 불러오는 중...
+      </div>
+    }>
+      <PaymentCompleteContent />
+    </Suspense>
   );
 }
