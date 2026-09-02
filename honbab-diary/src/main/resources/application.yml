@@ -1,0 +1,49 @@
+spring:
+  application:
+    name: honbab-diary
+
+  profiles:
+    active: dev
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+        highlight_sql: true
+        default_batch_fetch_size: 100
+
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    locations: classpath:db/migration
+
+jwt:
+  secret: ${JWT_SECRET:honbab-diary-jwt-secret-key-for-development-only-please-change-in-production}
+  access-token-validity-ms: 3600000        # 1시간
+  refresh-token-validity-ms: 1209600000    # 14일
+
+youtube:
+  api-key: ${YOUTUBE_API_KEY:MOCK_KEY}
+
+openai:
+  api-key: ${OPENAI_API_KEY:MOCK_KEY}
+
+kakao:
+  client-id: ${KAKAO_CLIENT_ID:MOCK_KEY}
+  client-secret: ${KAKAO_CLIENT_SECRET:MOCK_KEY}
+  admin-key: ${KAKAO_ADMIN_KEY:MOCK_KEY}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+
+logging:
+  level:
+    com.honbab.diary: DEBUG
+    org.hibernate.SQL: DEBUG
