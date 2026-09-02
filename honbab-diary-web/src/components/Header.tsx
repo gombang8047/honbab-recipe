@@ -2,24 +2,41 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ChefHat, ShoppingCart, Search, User, CheckCircle } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ChefHat, ShoppingCart, Search, User, LogOut } from 'lucide-react';
 import { cartApi } from '@/services/cartApi';
+import { authApi } from '@/services/authApi';
 
 interface HeaderProps {
   cartCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
+  const router = useRouter();
   const [count, setCount] = useState<number>(propCartCount ?? 3);
-  const [isLoggedIn, setIsLoggedIn] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [nickname, setNickname] = useState<string>('카카오 사용자');
 
   useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const token = localStorage.getItem('accessToken');
+      setIsLoggedIn(!!token);
+      const storedName = localStorage.getItem('userNickname');
+      if (storedName) setNickname(storedName);
+    }
+
     cartApi.getCart().then((cart) => {
       if (cart && typeof cart.totalItems === 'number') {
         setCount(cart.totalItems);
       }
     }).catch(() => {});
   }, []);
+
+  const handleLogout = async () => {
+    await authApi.logout();
+    setIsLoggedIn(false);
+    router.push('/login');
+  };
 
   return (
     <header className="glass-panel sticky top-0 z-50 px-6 py-4 mb-6 mx-4 mt-2 flex items-center justify-between shadow-xl">
@@ -60,17 +77,28 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
           )}
         </Link>
 
-        <button
-          onClick={() => setIsLoggedIn(!isLoggedIn)}
-          className={`flex items-center gap-2 font-semibold px-4 py-2 rounded-full text-sm shadow-lg transition-all ${
-            isLoggedIn
-              ? 'bg-slate-800 border border-amber-500/40 text-amber-300 hover:bg-slate-700'
-              : 'bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-900 hover:brightness-110'
-          }`}
-        >
-          {isLoggedIn ? <CheckCircle size={16} className="text-amber-400" /> : <User size={16} />}
-          <span>{isLoggedIn ? '데모 계정 (로그인됨)' : '카카오 로그인'}</span>
-        </button>
+        {isLoggedIn ? (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/30 hidden sm:inline-block">
+              👤 {nickname}
+            </span>
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-red-400 px-3.5 py-2 rounded-full text-xs font-semibold border border-slate-700 transition-all"
+            >
+              <LogOut size={14} />
+              <span>로그아웃</span>
+            </button>
+          </div>
+        ) : (
+          <Link
+            href="/login"
+            className="flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-900 font-semibold px-4 py-2 rounded-full text-sm hover:brightness-110 shadow-lg transition-all"
+          >
+            <User size={16} />
+            <span>카카오 로그인</span>
+          </Link>
+        )}
       </div>
     </header>
   );

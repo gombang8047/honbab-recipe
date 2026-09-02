@@ -16,6 +16,7 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-honbab1234}
       SPRING_DATA_REDIS_HOST: redis
       JWT_SECRET: ${JWT_SECRET:-c2VjcmV0S2V5Rm9ySG9uYmFiRGlhcnlBcHBsaWNhdGlvbkRldmVsb3BtZW50T25seTIwMjY=}
+      KAKAO_CLIENT_ID: ${KAKAO_CLIENT_ID:-205c8310126b67c0479b663e5bfa0745}
     networks:
       - honbab-network
 
