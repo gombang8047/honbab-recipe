@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, Suspense } from 'react';
+import React, { useEffect, useState, useRef, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { authApi } from '@/services/authApi';
 import { AlertCircle } from 'lucide-react';
@@ -9,6 +9,8 @@ function KakaoCallbackContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const calledRef = useRef(false);
+  const successRef = useRef(false);
 
   useEffect(() => {
     const code = searchParams?.get('code');
@@ -17,19 +19,27 @@ function KakaoCallbackContent() {
       return;
     }
 
+    // React StrictMode 등 중복 호출 방지 (카카오 인가 코드는 1회용이라 두 번째 호출 시 실패함)
+    if (calledRef.current) return;
+    calledRef.current = true;
+
     const redirectUri = window.location.origin + window.location.pathname;
 
     authApi.kakaoLogin(code, redirectUri)
       .then(() => {
-        router.replace('/');
+        successRef.current = true;
+        // 즉시 메인 홈 화면으로 이동
+        window.location.href = '/';
       })
       .catch((err) => {
-        console.error(err);
+        // 이미 첫 번째 호출로 성공한 상태라면 에러 화면을 띄우지 않음
+        if (successRef.current) return;
+        console.error('카카오 로그인 최종 실패:', err);
         setError('카카오 로그인 처리 중 오류가 발생했습니다.');
       });
   }, [searchParams, router]);
 
-  if (error) {
+  if (error && !successRef.current) {
     return (
       <div className="max-w-md mx-auto p-8 text-center flex flex-col items-center gap-4">
         <div className="text-red-400 bg-red-500/20 p-4 rounded-full border border-red-500/30">
@@ -39,7 +49,7 @@ function KakaoCallbackContent() {
         <p className="text-xs text-slate-400">{error}</p>
         <button
           onClick={() => router.push('/login')}
-          className="mt-4 bg-orange-500 text-white font-bold py-2.5 px-6 rounded-xl text-xs"
+          className="mt-4 bg-orange-500 hover:bg-orange-600 text-white font-bold py-2.5 px-6 rounded-xl text-xs transition-colors"
         >
           다시 로그인하기
         </button>

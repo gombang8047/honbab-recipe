@@ -29,6 +29,10 @@ public class UserService {
     public User findOrCreateByOAuth(String oauthProvider, String oauthId,
                                      String email, String nickname, String profileImageUrl) {
         return userRepository.findByOauthProviderAndOauthId(oauthProvider, oauthId)
+                .map(existingUser -> {
+                    existingUser.updateProfile(nickname, profileImageUrl);
+                    return existingUser;
+                })
                 .orElseGet(() -> userRepository.save(User.builder()
                         .oauthProvider(oauthProvider)
                         .oauthId(oauthId)
