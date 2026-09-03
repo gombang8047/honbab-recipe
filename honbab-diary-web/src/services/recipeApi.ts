@@ -60,18 +60,17 @@ export const recipeApi = {
   convertToRecipe: async (shortsId: number): Promise<RecipeDetail> => {
     try {
       const res: any = await apiClient.post(`/shorts/${shortsId}/recipe`);
-      return res.data;
-    } catch {
-      // Return mock with delay to simulate AI conversion
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      return { ...MOCK_RECIPE, shortsId };
+      return res.data || res;
+    } catch (err) {
+      console.error('AI 레시피 변환 실패:', err);
+      throw err;
     }
   },
 
   getDetail: async (recipeId: number): Promise<RecipeDetail> => {
     try {
       const res: any = await apiClient.get(`/recipes/${recipeId}`);
-      return res.data;
+      return res.data || res;
     } catch {
       return MOCK_RECIPE;
     }

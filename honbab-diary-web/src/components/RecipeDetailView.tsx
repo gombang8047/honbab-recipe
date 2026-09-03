@@ -167,24 +167,30 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
         <h2 className="text-lg font-bold text-white">👨‍🍳 조리 순서</h2>
 
         <div className="flex flex-col gap-4">
-          {recipe.steps.map((step) => (
-            <div key={step.order} className="bg-slate-900/70 border border-slate-800 p-5 rounded-2xl flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
-              <div className="flex gap-4 items-start">
-                <span className="w-7 h-7 rounded-full bg-orange-500 text-white font-bold text-sm flex items-center justify-center shrink-0">
-                  {step.order}
-                </span>
-                <p className="text-slate-200 text-sm leading-relaxed font-medium">
-                  {step.description}
-                </p>
-              </div>
+          {recipe.steps.map((step) => {
+            const cleanDescription = step.description
+              ? step.description.split(/\n?💡/)[0].replace(/^💡.*/, '').trim()
+              : '';
 
-              {step.timerSeconds && step.timerSeconds > 0 && (
-                <div className="self-end md:self-center">
-                  <CookingTimer seconds={step.timerSeconds} stepOrder={step.order} />
+            return (
+              <div key={step.order} className="bg-slate-900/70 border border-slate-800 p-5 rounded-2xl flex flex-col md:flex-row gap-4 justify-between items-start md:items-center">
+                <div className="flex gap-4 items-start">
+                  <span className="w-7 h-7 rounded-full bg-orange-500 text-white font-bold text-sm flex items-center justify-center shrink-0">
+                    {step.order}
+                  </span>
+                  <p className="text-slate-200 text-sm leading-relaxed font-medium">
+                    {cleanDescription}
+                  </p>
                 </div>
-              )}
-            </div>
-          ))}
+
+                {step.timerSeconds && step.timerSeconds > 0 && (
+                  <div className="self-end md:self-center">
+                    <CookingTimer seconds={step.timerSeconds} stepOrder={step.order} />
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
