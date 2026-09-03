@@ -18,6 +18,7 @@ export interface Step {
 export interface RecipeDetail {
   id: number;
   shortsId: number;
+  shortsYoutubeId?: string;
   title: string;
   description: string;
   servingSize: number;
@@ -32,6 +33,7 @@ export interface RecipeDetail {
 const MOCK_RECIPE: RecipeDetail = {
   id: 1,
   shortsId: 1,
+  shortsYoutubeId: "mock_egg_fried_rice",
   title: "🍳 5분컷 초간단 계란볶음밥",
   description: "파기름과 굴소스로 맛을 낸 1인분 맞춤 계란 볶음밥 레시피입니다.",
   servingSize: 1,

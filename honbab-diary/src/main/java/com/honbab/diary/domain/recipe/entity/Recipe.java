@@ -7,6 +7,9 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -47,6 +50,7 @@ public class Recipe {
     @Column(name = "estimated_cost")
     private Integer estimatedCost;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "nutrition_info", columnDefinition = "jsonb")
     private String nutritionInfo;
 

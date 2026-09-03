@@ -8,9 +8,7 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Component
@@ -23,14 +21,15 @@ public class YoutubeApiClient {
     private String apiKey;
 
     private static final String YOUTUBE_SEARCH_URL = "https://www.googleapis.com/youtube/v3/search";
+    private static final String YOUTUBE_VIDEOS_URL = "https://www.googleapis.com/youtube/v3/videos";
 
     /**
-     * 키워드로 유튜브 쇼츠 검색 (Mock 연동 겸용)
+     * 1단계: 키워드로 유튜브 쇼츠 검색 (영상 ID 목록 획득)
      */
     @SuppressWarnings("unchecked")
     public List<Map<String, Object>> searchShorts(String keyword, int maxResults) {
-        if ("MOCK_KEY".equals(apiKey) || apiKey.isBlank()) {
-            log.info("[MOCK] YouTube API Key 미설정으로 스텁 데이터를 반환합니다. keyword={}", keyword);
+        if ("MOCK_KEY".equals(apiKey) || apiKey == null || apiKey.isBlank()) {
+            log.info("[MOCK] YouTube API Key 미설정으로 스텁 검색 데이터를 반환합니다. keyword={}", keyword);
             return getMockSearchResults(keyword);
         }
 
@@ -40,7 +39,7 @@ public class YoutubeApiClient {
                     .queryParam("q", keyword + " #shorts")
                     .queryParam("type", "video")
                     .queryParam("videoDuration", "short")
-                    .queryParam("maxResults", maxResults)
+                    .queryParam("maxResults", Math.min(maxResults, 50))
                     .queryParam("key", apiKey)
                     .build()
                     .toUri();
@@ -50,7 +49,40 @@ public class YoutubeApiClient {
                 return (List<Map<String, Object>>) response.get("items");
             }
         } catch (Exception e) {
-            log.error("YouTube API 호출 실패: {}", e.getMessage());
+            log.error("YouTube Search API 호출 실패 (keyword={}): {}", keyword, e.getMessage());
+        }
+
+        return Collections.emptyList();
+    }
+
+    /**
+     * 2단계: 영상 ID 목록으로 실제 조회수, 재생시간, 태그 일괄 상세 조회
+     */
+    @SuppressWarnings("unchecked")
+    public List<Map<String, Object>> getVideoDetails(List<String> videoIds) {
+        if (videoIds == null || videoIds.isEmpty()) {
+            return Collections.emptyList();
+        }
+
+        if ("MOCK_KEY".equals(apiKey) || apiKey == null || apiKey.isBlank()) {
+            return getMockVideoDetails(videoIds);
+        }
+
+        try {
+            String idsParam = String.join(",", videoIds);
+            URI uri = UriComponentsBuilder.fromHttpUrl(YOUTUBE_VIDEOS_URL)
+                    .queryParam("part", "snippet,contentDetails,statistics")
+                    .queryParam("id", idsParam)
+                    .queryParam("key", apiKey)
+                    .build()
+                    .toUri();
+
+            Map<String, Object> response = restTemplate.getForObject(uri, Map.class);
+            if (response != null && response.containsKey("items")) {
+                return (List<Map<String, Object>>) response.get("items");
+            }
+        } catch (Exception e) {
+            log.error("YouTube Videos API 호출 실패: {}", e.getMessage());
         }
 
         return Collections.emptyList();
@@ -59,21 +91,48 @@ public class YoutubeApiClient {
     private List<Map<String, Object>> getMockSearchResults(String keyword) {
         return List.of(
                 Map.of(
-                        "id", Map.of("videoId", "mock_shorts_01"),
+                        "id", Map.of("videoId", "mock_egg_fried_rice"),
                         "snippet", Map.of(
-                                "title", "[" + keyword + "] 5분컷 초간단 계란볶음밥 레시피 #shorts",
+                                "title", "[" + keyword + "] 5분컷 원팬 계란볶음밥 황금레시피 #자취요리 #간단요리",
                                 "channelTitle", "자취요리왕",
-                                "thumbnails", Map.of("high", Map.of("url", "https://img.youtube.com/vi/mock_shorts_01/hqdefault.jpg"))
+                                "thumbnails", Map.of("high", Map.of("url", "https://img.youtube.com/vi/mock_egg_fried_rice/hqdefault.jpg"))
                         )
                 ),
                 Map.of(
-                        "id", Map.of("videoId", "mock_shorts_02"),
+                        "id", Map.of("videoId", "mock_spam_mayo"),
                         "snippet", Map.of(
-                                "title", "[" + keyword + "] 원팬으로 끝내는 원조 김치볶음밥 #shorts",
-                                "channelTitle", "혼밥레시피",
-                                "thumbnails", Map.of("high", Map.of("url", "https://img.youtube.com/vi/mock_shorts_02/hqdefault.jpg"))
+                                "title", "[" + keyword + "] 실패 없는 스팸마요덮밥 초간단 1인분 #스팸요리 #혼밥",
+                                "channelTitle", "혼밥마스터",
+                                "thumbnails", Map.of("high", Map.of("url", "https://img.youtube.com/vi/mock_spam_mayo/hqdefault.jpg"))
+                        )
+                ),
+                Map.of(
+                        "id", Map.of("videoId", "mock_microwave_steamed"),
+                        "snippet", Map.of(
+                                "title", "[" + keyword + "] 전자레인지 3분 완성 대패삼겹 야채찜 #전자레인지 #초간단",
+                                "channelTitle", "1인분연구소",
+                                "thumbnails", Map.of("high", Map.of("url", "https://img.youtube.com/vi/mock_microwave_steamed/hqdefault.jpg"))
                         )
                 )
         );
+    }
+
+    private List<Map<String, Object>> getMockVideoDetails(List<String> videoIds) {
+        List<Map<String, Object>> list = new ArrayList<>();
+        for (String id : videoIds) {
+            list.add(Map.of(
+                    "id", id,
+                    "snippet", Map.of(
+                            "title", "자취생 초간단 꿀맛 요리 #shorts",
+                            "channelTitle", "자취요리왕",
+                            "description", "자취생 필수 초간단 레시피입니다! #자취요리 #혼밥 #간단요리",
+                            "tags", List.of("자취요리", "혼밥", "간단요리", "1인분"),
+                            "thumbnails", Map.of("high", Map.of("url", "https://img.youtube.com/vi/" + id + "/hqdefault.jpg"))
+                    ),
+                    "contentDetails", Map.of("duration", "PT50S"),
+                    "statistics", Map.of("viewCount", "150000", "likeCount", "5200")
+            ));
+        }
+        return list;
     }
 }

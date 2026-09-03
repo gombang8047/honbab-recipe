@@ -1,0 +1,190 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = "postgresql://honbab:honbab1234@localhost:5432/honbab_diary?schema=public"
+}
+
+model cart {
+  id         BigInt      @id @default(autoincrement())
+  user_id    BigInt
+  status     String      @default("ACTIVE") @db.VarChar(20)
+  created_at DateTime    @default(now()) @db.Timestamp(6)
+  users      users       @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  cart_item  cart_item[]
+
+  @@index([user_id, status], map: "idx_cart_user_status")
+}
+
+model cart_item {
+  id                 BigInt          @id @default(autoincrement())
+  cart_id            BigInt
+  product_mapping_id BigInt
+  quantity           Int             @default(1)
+  price              Int
+  cart               cart            @relation(fields: [cart_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  product_mapping    product_mapping @relation(fields: [product_mapping_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model flyway_schema_history {
+  installed_rank Int      @id(map: "flyway_schema_history_pk")
+  version        String?  @db.VarChar(50)
+  description    String   @db.VarChar(200)
+  type           String   @db.VarChar(20)
+  script         String   @db.VarChar(1000)
+  checksum       Int?
+  installed_by   String   @db.VarChar(100)
+  installed_on   DateTime @default(now()) @db.Timestamp(6)
+  execution_time Int
+  success        Boolean
+
+  @@index([success], map: "flyway_schema_history_s_idx")
+}
+
+model ingredient {
+  id                BigInt              @id @default(autoincrement())
+  name              String              @unique @db.VarChar(100)
+  category          String?             @db.VarChar(50)
+  storage_type      String?             @db.VarChar(30)
+  product_mapping   product_mapping[]
+  recipe_ingredient recipe_ingredient[]
+}
+
+model payment_history {
+  id             BigInt         @id @default(autoincrement())
+  user_id        BigInt
+  payment_method String         @db.VarChar(30)
+  transaction_id String?        @unique @db.VarChar(255)
+  total_amount   Int
+  status         String         @default("PENDING") @db.VarChar(20)
+  paid_at        DateTime?      @db.Timestamp(6)
+  kakao_tid      String?        @db.VarChar(255)
+  users          users          @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  payment_item   payment_item[]
+}
+
+model payment_item {
+  id                 BigInt          @id @default(autoincrement())
+  payment_history_id BigInt
+  product_name       String          @db.VarChar(255)
+  quantity           Int
+  price              Int
+  payment_history    payment_history @relation(fields: [payment_history_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model product_mapping {
+  id             BigInt      @id @default(autoincrement())
+  ingredient_id  BigInt
+  platform       String      @db.VarChar(30)
+  product_id     String      @db.VarChar(255)
+  product_name   String      @db.VarChar(255)
+  product_url    String?     @db.VarChar(255)
+  price          Int
+  last_synced_at DateTime?   @db.Timestamp(6)
+  cart_item      cart_item[]
+  ingredient     ingredient  @relation(fields: [ingredient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model recipe {
+  id                BigInt              @id @default(autoincrement())
+  shorts_id         BigInt              @unique
+  title             String              @db.VarChar(255)
+  description       String?
+  serving_size      Int?                @default(1)
+  prep_time_minutes Int?
+  cook_time_minutes Int?
+  difficulty        String?             @db.VarChar(20)
+  estimated_cost    Int?
+  nutrition_info    Json?
+  created_at        DateTime            @default(now()) @db.Timestamp(6)
+  shorts            shorts              @relation(fields: [shorts_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  recipe_ingredient recipe_ingredient[]
+  recipe_step       recipe_step[]
+
+  @@index([shorts_id], map: "idx_recipe_shorts_id")
+}
+
+model recipe_ingredient {
+  id            BigInt     @id @default(autoincrement())
+  recipe_id     BigInt
+  ingredient_id BigInt
+  amount        String?    @db.VarChar(50)
+  unit          String?    @db.VarChar(20)
+  is_essential  Boolean    @default(true)
+  ingredient    ingredient @relation(fields: [ingredient_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  recipe        recipe     @relation(fields: [recipe_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model recipe_step {
+  id            BigInt  @id @default(autoincrement())
+  recipe_id     BigInt
+  step_order    Int
+  description   String
+  image_url     String? @db.VarChar(255)
+  timer_seconds Int?
+  recipe        recipe  @relation(fields: [recipe_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+}
+
+model shorts {
+  id                   BigInt                 @id @default(autoincrement())
+  youtube_id           String                 @unique @db.VarChar(255)
+  title                String                 @db.VarChar(255)
+  channel_name         String                 @db.VarChar(255)
+  thumbnail_url        String?                @db.VarChar(255)
+  video_url            String?                @db.VarChar(255)
+  duration_seconds     Int?
+  view_count           BigInt?
+  metadata             Json?
+  status               String                 @default("ACTIVE") @db.VarChar(20)
+  crawled_at           DateTime?              @db.Timestamp(6)
+  created_at           DateTime               @default(now()) @db.Timestamp(6)
+  recipe               recipe?
+  shorts_tag           shorts_tag[]
+  user_recipe_bookmark user_recipe_bookmark[]
+
+  @@index([created_at(sort: Desc)], map: "idx_shorts_created_at")
+  @@index([view_count(sort: Desc)], map: "idx_shorts_view_count")
+}
+
+model shorts_tag {
+  shorts_id BigInt
+  tag_id    BigInt
+  shorts    shorts @relation(fields: [shorts_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  tag       tag    @relation(fields: [tag_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@id([shorts_id, tag_id])
+}
+
+model tag {
+  id         BigInt       @id @default(autoincrement())
+  name       String       @unique @db.VarChar(50)
+  shorts_tag shorts_tag[]
+}
+
+model user_recipe_bookmark {
+  id         BigInt   @id @default(autoincrement())
+  user_id    BigInt
+  shorts_id  BigInt
+  created_at DateTime @default(now()) @db.Timestamp(6)
+  shorts     shorts   @relation(fields: [shorts_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+  users      users    @relation(fields: [user_id], references: [id], onDelete: Cascade, onUpdate: NoAction)
+
+  @@unique([user_id, shorts_id], map: "uk_user_shorts_bookmark")
+  @@unique([user_id, shorts_id], map: "ukf92jr4qwkrn5s9f3dfblie095")
+}
+
+model users {
+  id                   BigInt                 @id @default(autoincrement())
+  email                String                 @unique @db.VarChar(255)
+  nickname             String                 @db.VarChar(50)
+  profile_image_url    String?                @db.VarChar(255)
+  oauth_provider       String                 @db.VarChar(20)
+  oauth_id             String                 @db.VarChar(255)
+  created_at           DateTime               @default(now()) @db.Timestamp(6)
+  updated_at           DateTime?              @db.Timestamp(6)
+  cart                 cart[]
+  payment_history      payment_history[]
+  user_recipe_bookmark user_recipe_bookmark[]
+}

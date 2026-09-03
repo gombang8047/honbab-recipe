@@ -65,7 +65,42 @@ const MOCK_SHORTS: ShortsItem[] = [
   }
 ];
 
+export interface PaginatedShorts {
+  items: ShortsItem[];
+  hasMore: boolean;
+  totalElements: number;
+  page: number;
+}
+
 export const shortsApi = {
+  getFeedPaginated: async (page = 0, size = 8): Promise<PaginatedShorts> => {
+    try {
+      const res: any = await apiClient.get(`/shorts?page=${page}&size=${size}`);
+      const data = res.data;
+      if (data && Array.isArray(data.content)) {
+        return {
+          items: data.content,
+          hasMore: !data.last,
+          totalElements: data.totalElements,
+          page: data.number ?? page,
+        };
+      }
+      return {
+        items: page === 0 ? MOCK_SHORTS : [],
+        hasMore: false,
+        totalElements: MOCK_SHORTS.length,
+        page: 0,
+      };
+    } catch {
+      return {
+        items: page === 0 ? MOCK_SHORTS : [],
+        hasMore: false,
+        totalElements: MOCK_SHORTS.length,
+        page: 0,
+      };
+    }
+  },
+
   getFeed: async (page = 0, size = 20): Promise<ShortsItem[]> => {
     try {
       const res: any = await apiClient.get(`/shorts?page=${page}&size=${size}`);
