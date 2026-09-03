@@ -1,7 +1,9 @@
 package com.honbab.diary.domain.shorts.controller;
 
+import com.honbab.diary.domain.shorts.dto.CrawlResultResponse;
 import com.honbab.diary.domain.shorts.dto.ShortsDetailResponse;
 import com.honbab.diary.domain.shorts.dto.ShortsResponse;
+import com.honbab.diary.domain.shorts.service.ShortsCrawlingService;
 import com.honbab.diary.domain.shorts.service.ShortsService;
 import com.honbab.diary.global.common.ApiResponse;
 import io.swagger.v3.oas.annotations.Operation;
@@ -14,13 +16,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-@Tag(name = "쇼츠", description = "유튜브 쇼츠 피드 / 검색 / 북마크 API")
+@Tag(name = "쇼츠", description = "유튜브 쇼츠 피드 / 검색 / 북마크 / 크롤링 API")
 @RestController
 @RequestMapping("/api/v1/shorts")
 @RequiredArgsConstructor
 public class ShortsController {
 
     private final ShortsService shortsService;
+    private final ShortsCrawlingService shortsCrawlingService;
 
     @Operation(summary = "쇼츠 피드", description = "최신 쇼츠 피드를 페이지네이션으로 조회합니다.")
     @GetMapping
@@ -60,5 +63,13 @@ public class ShortsController {
         Long userId = (Long) authentication.getPrincipal();
         shortsService.removeBookmark(id, userId);
         return ResponseEntity.ok(ApiResponse.ok());
+    }
+
+    @Operation(summary = "쇼츠 수동 크롤링 실행", description = "유튜브에서 키워드로 자취생 요리 쇼츠를 크롤링하여 DB에 저장합니다.")
+    @PostMapping("/crawl")
+    public ResponseEntity<ApiResponse<CrawlResultResponse>> crawlShorts(
+            @RequestParam(defaultValue = "자취요리") String keyword,
+            @RequestParam(defaultValue = "10") int limit) {
+        return ResponseEntity.ok(ApiResponse.ok(shortsCrawlingService.crawlByKeyword(keyword, limit)));
     }
 }

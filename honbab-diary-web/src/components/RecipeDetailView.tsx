@@ -3,7 +3,7 @@
 import React, { useState } from 'react';
 import { RecipeDetail } from '@/services/recipeApi';
 import { CookingTimer } from './CookingTimer';
-import { ShoppingBag, Users, Clock, Flame, DollarSign, CheckSquare, Square, ChevronLeft } from 'lucide-react';
+import { ShoppingBag, Users, Clock, Flame, DollarSign, CheckSquare, Square, ChevronLeft, Youtube, ExternalLink } from 'lucide-react';
 import Link from 'next/link';
 
 interface RecipeDetailViewProps {
@@ -83,6 +83,37 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
           </div>
         </div>
       </div>
+
+      {/* Embedded Shorts Video Player if available */}
+      {recipe.shortsYoutubeId && (
+        <div className="glass-panel p-6 rounded-3xl flex flex-col gap-4 border border-slate-800">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Youtube size={20} className="text-red-500" />
+              <span>원본 쇼츠 영상 보며 따라하기</span>
+            </h2>
+            <a
+              href={`https://www.youtube.com/shorts/${recipe.shortsYoutubeId}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1 transition-colors"
+            >
+              <span>유튜브에서 열기</span>
+              <ExternalLink size={12} />
+            </a>
+          </div>
+
+          <div className="relative w-full max-w-[340px] mx-auto aspect-[9/16] rounded-2xl overflow-hidden bg-black shadow-2xl border border-slate-700/60">
+            <iframe
+              src={`https://www.youtube.com/embed/${recipe.shortsYoutubeId}?rel=0&playsinline=1`}
+              title="원본 쇼츠 영상"
+              className="w-full h-full border-0"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              allowFullScreen
+            />
+          </div>
+        </div>
+      )}
 
       {/* Ingredients & Cart CTA */}
       <div className="glass-panel p-6 rounded-3xl flex flex-col gap-5">

@@ -34,6 +34,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 공개 엔드포인트
                         .requestMatchers("/api/v1/auth/**").permitAll()
+                        .requestMatchers("/api/v1/shorts/crawl").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/shorts/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/recipes/**").permitAll()
                         // Swagger UI

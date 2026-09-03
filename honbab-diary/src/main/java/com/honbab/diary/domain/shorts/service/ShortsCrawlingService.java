@@ -1,8 +1,10 @@
 package com.honbab.diary.domain.shorts.service;
 
+import com.honbab.diary.domain.shorts.dto.CrawlResultResponse;
 import com.honbab.diary.domain.shorts.entity.Shorts;
 import com.honbab.diary.domain.shorts.entity.Tag;
 import com.honbab.diary.domain.shorts.repository.ShortsRepository;
+import com.honbab.diary.domain.shorts.repository.TagRepository;
 import com.honbab.diary.infra.youtube.YoutubeApiClient;
 import com.honbab.diary.infra.youtube.YoutubeDataParser;
 import lombok.RequiredArgsConstructor;
@@ -11,8 +13,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Slf4j
 @Service
@@ -22,63 +23,128 @@ public class ShortsCrawlingService {
     private final YoutubeApiClient youtubeApiClient;
     private final YoutubeDataParser youtubeDataParser;
     private final ShortsRepository shortsRepository;
+    private final TagRepository tagRepository;
 
-    private static final List<String> SEARCH_KEYWORDS = List.of(
-            "자취요리", "혼밥레시피", "1인분요리", "자취생레시피", "간단요리"
+    /**
+     * 자취생 요리 특화 검색 키워드 풀
+     */
+    public static final List<String> SEARCH_KEYWORDS = List.of(
+            "자취요리",
+            "원팬요리",
+            "전자레인지 요리",
+            "자취생 초간단 요리",
+            "스팸요리",
+            "계란요리",
+            "혼밥레시피",
+            "자취생 1인분 요리"
     );
 
     /**
-     * 매일 오전 6시, 오후 6시에 크롤링 실행
+     * 매일 오전 6시, 오후 6시 정기 크롤링
      */
     @Scheduled(cron = "0 0 6,18 * * *")
     @Transactional
-    public void crawlShorts() {
-        log.info("=== 유튜브 쇼츠 크롤링 시작 ===");
-        int totalCrawled = 0;
+    public void scheduledCrawl() {
+        log.info("=== [정기 크롤링] 유튜브 자취생 요리 쇼츠 크롤링 시작 ===");
+        int totalNewSaved = 0;
 
         for (String keyword : SEARCH_KEYWORDS) {
             try {
-                List<Map<String, Object>> results = youtubeApiClient.searchShorts(keyword, 10);
-
-                for (Map<String, Object> result : results) {
-                    String youtubeId = youtubeDataParser.extractYoutubeId(result);
-
-                    if (shortsRepository.existsByYoutubeId(youtubeId)) {
-                        log.debug("이미 존재하는 쇼츠: {}", youtubeId);
-                        continue;
-                    }
-
-                    Shorts shorts = youtubeDataParser.parseToShorts(result);
-                    shortsRepository.save(shorts);
-                    totalCrawled++;
-                    log.info("새로운 쇼츠 저장: {} - {}", youtubeId, shorts.getTitle());
-                }
+                CrawlResultResponse result = crawlByKeyword(keyword, 10);
+                totalNewSaved += result.getNewlySavedCount();
             } catch (Exception e) {
-                log.error("키워드 '{}' 크롤링 실패: {}", keyword, e.getMessage());
+                log.error("키워드 '{}' 크롤링 중 오류: {}", keyword, e.getMessage());
             }
         }
 
-        log.info("=== 크롤링 완료: {}건 신규 저장 ===", totalCrawled);
+        log.info("=== [정기 크롤링] 완료: 총 {}건 신규 쇼츠 저장 ===", totalNewSaved);
     }
 
     /**
-     * 수동 크롤링 트리거
+     * 특정 키워드로 쇼츠 수동 크롤링 실행
      */
     @Transactional
-    public int manualCrawl(String keyword, int maxResults) {
-        log.info("수동 크롤링 시작: keyword={}, maxResults={}", keyword, maxResults);
-        List<Map<String, Object>> results = youtubeApiClient.searchShorts(keyword, maxResults);
-        int crawled = 0;
+    public CrawlResultResponse crawlByKeyword(String keyword, int maxResults) {
+        log.info("쇼츠 크롤링 실행: keyword={}, maxResults={}", keyword, maxResults);
 
-        for (Map<String, Object> result : results) {
-            String youtubeId = youtubeDataParser.extractYoutubeId(result);
-            if (!shortsRepository.existsByYoutubeId(youtubeId)) {
-                Shorts shorts = youtubeDataParser.parseToShorts(result);
-                shortsRepository.save(shorts);
-                crawled++;
+        // 1단계: 검색 API로 쇼츠 목록 획득
+        List<Map<String, Object>> searchResults = youtubeApiClient.searchShorts(keyword, maxResults);
+        if (searchResults.isEmpty()) {
+            return CrawlResultResponse.builder()
+                    .keyword(keyword)
+                    .searchedCount(0)
+                    .newlySavedCount(0)
+                    .skippedDuplicateCount(0)
+                    .savedTitles(Collections.emptyList())
+                    .build();
+        }
+
+        // 2단계: 신규 영상 ID 필터링 (중복 제외)
+        List<String> newVideoIds = new ArrayList<>();
+        int duplicateCount = 0;
+
+        for (Map<String, Object> item : searchResults) {
+            String videoId = youtubeDataParser.extractYoutubeId(item);
+            if (videoId == null || videoId.isBlank()) {
+                continue;
+            }
+
+            if (shortsRepository.existsByYoutubeId(videoId)) {
+                duplicateCount++;
+                log.debug("이미 존재하는 쇼츠 건너뜀: {}", videoId);
+            } else {
+                newVideoIds.add(videoId);
             }
         }
 
-        return crawled;
+        if (newVideoIds.isEmpty()) {
+            log.info("검색된 {}건 모두 이미 수집된 영상입니다 (중복 {}건)", searchResults.size(), duplicateCount);
+            return CrawlResultResponse.builder()
+                    .keyword(keyword)
+                    .searchedCount(searchResults.size())
+                    .newlySavedCount(0)
+                    .skippedDuplicateCount(duplicateCount)
+                    .savedTitles(Collections.emptyList())
+                    .build();
+        }
+
+        // 3단계: 신규 영상 상세/통계 일괄 조회 (조회수, 재생시간, 태그)
+        List<Map<String, Object>> videoDetails = youtubeApiClient.getVideoDetails(newVideoIds);
+        List<String> savedTitles = new ArrayList<>();
+
+        for (Map<String, Object> detail : videoDetails) {
+            try {
+                String videoId = youtubeDataParser.extractYoutubeId(detail);
+                if (shortsRepository.existsByYoutubeId(videoId)) {
+                    continue;
+                }
+
+                // Shorts 엔티티 파싱
+                Shorts shorts = youtubeDataParser.parseToShorts(detail);
+
+                // 태그 추출 및 매핑
+                Set<String> tagNames = youtubeDataParser.extractTags(detail);
+                for (String tagName : tagNames) {
+                    Tag tag = tagRepository.findByName(tagName)
+                            .orElseGet(() -> tagRepository.save(new Tag(tagName)));
+                    shorts.addTag(tag);
+                }
+
+                shortsRepository.save(shorts);
+                savedTitles.add(shorts.getTitle());
+                log.info("새로운 쇼츠 저장 완료: [조회수: {}회] {} ({})",
+                        shorts.getViewCount(), shorts.getTitle(), shorts.getVideoUrl());
+            } catch (Exception e) {
+                log.error("쇼츠 저장 실패: {}", e.getMessage(), e);
+            }
+        }
+
+        return CrawlResultResponse.builder()
+                .keyword(keyword)
+                .searchedCount(searchResults.size())
+                .newlySavedCount(savedTitles.size())
+                .skippedDuplicateCount(duplicateCount)
+                .savedTitles(savedTitles)
+                .build();
     }
 }

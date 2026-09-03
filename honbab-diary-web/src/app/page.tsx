@@ -4,15 +4,17 @@ import React, { useState, useEffect } from 'react';
 import { ShortsItem, shortsApi } from '@/services/shortsApi';
 import { recipeApi } from '@/services/recipeApi';
 import { ShortsCard } from '@/components/ShortsCard';
+import { ShortsPlayerModal } from '@/components/ShortsPlayerModal';
 import { AiConversionModal } from '@/components/AiConversionModal';
 import { useRouter } from 'next/navigation';
-import { Sparkles, Flame, TrendingUp, Filter } from 'lucide-react';
+import { Sparkles, TrendingUp, Filter } from 'lucide-react';
 
 export default function HomePage() {
   const [shortsList, setShortsList] = useState<ShortsItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTag, setSelectedTag] = useState<string>('ALL');
   const [convertingShorts, setConvertingShorts] = useState<ShortsItem | null>(null);
+  const [playingShorts, setPlayingShorts] = useState<ShortsItem | null>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -34,11 +36,11 @@ export default function HomePage() {
     }
   };
 
-  const tags = ['ALL', '자취요리', '계란볶음밥', '김치볶음밥', '전자레인지', '원팬요리'];
+  const tags = ['ALL', '자취요리', '간단요리', '원팬요리', '전자레인지', '김치볶음밥', '스팸'];
 
   const filteredList = selectedTag === 'ALL'
     ? shortsList
-    : shortsList.filter(s => s.tags.includes(selectedTag));
+    : shortsList.filter(s => s.tags && s.tags.some(t => t.includes(selectedTag) || selectedTag.includes(t)));
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-8">
@@ -92,10 +94,23 @@ export default function HomePage() {
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {filteredList.map((shorts) => (
-            <ShortsCard key={shorts.id} shorts={shorts} onConvertAi={handleConvertAi} />
+            <ShortsCard
+              key={shorts.id}
+              shorts={shorts}
+              onConvertAi={handleConvertAi}
+              onPlay={setPlayingShorts}
+            />
           ))}
         </div>
       )}
+
+      {/* Shorts Video Player Modal */}
+      <ShortsPlayerModal
+        isOpen={!!playingShorts}
+        shorts={playingShorts}
+        onClose={() => setPlayingShorts(null)}
+        onConvertAi={handleConvertAi}
+      />
 
       {/* AI Conversion Processing Modal */}
       <AiConversionModal isOpen={!!convertingShorts} shortsTitle={convertingShorts?.title} />
