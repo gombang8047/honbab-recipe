@@ -88,6 +88,55 @@ public class YoutubeApiClient {
         return Collections.emptyList();
     }
 
+    private static final String YOUTUBE_COMMENTS_URL = "https://www.googleapis.com/youtube/v3/commentThreads";
+
+    /**
+     * 3단계: 영상의 최상단/고정 댓글 조회 (레시피 정보 보강용)
+     */
+    @SuppressWarnings("unchecked")
+    public String getTopComment(String videoId) {
+        if ("MOCK_KEY".equals(apiKey) || apiKey == null || apiKey.isBlank() || videoId == null) {
+            return null;
+        }
+
+        try {
+            URI uri = UriComponentsBuilder.fromHttpUrl(YOUTUBE_COMMENTS_URL)
+                    .queryParam("part", "snippet")
+                    .queryParam("videoId", videoId)
+                    .queryParam("maxResults", 3)
+                    .queryParam("order", "relevance")
+                    .queryParam("key", apiKey)
+                    .build()
+                    .toUri();
+
+            Map<String, Object> response = restTemplate.getForObject(uri, Map.class);
+            if (response != null && response.containsKey("items")) {
+                List<Map<String, Object>> items = (List<Map<String, Object>>) response.get("items");
+                if (!items.isEmpty()) {
+                    StringBuilder commentsText = new StringBuilder();
+                    for (Map<String, Object> item : items) {
+                        Map<String, Object> snippet = (Map<String, Object>) item.get("snippet");
+                        if (snippet != null) {
+                            Map<String, Object> topComment = (Map<String, Object>) snippet.get("topLevelComment");
+                            if (topComment != null) {
+                                Map<String, Object> commentSnippet = (Map<String, Object>) topComment.get("snippet");
+                                if (commentSnippet != null && commentSnippet.containsKey("textDisplay")) {
+                                    String text = (String) commentSnippet.get("textDisplay");
+                                    commentsText.append(text).append("\n");
+                                }
+                            }
+                        }
+                    }
+                    return commentsText.toString();
+                }
+            }
+        } catch (Exception e) {
+            log.debug("유튜브 댓글 조회 건너뜀 (videoId={}): {}", videoId, e.getMessage());
+        }
+
+        return null;
+    }
+
     private List<Map<String, Object>> getMockSearchResults(String keyword) {
         return List.of(
                 Map.of(
