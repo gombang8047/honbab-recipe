@@ -4,6 +4,9 @@ export interface TokenResponse {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+  userId?: number;
+  nickname?: string;
+  profileImageUrl?: string;
 }
 
 export const authApi = {
@@ -14,29 +17,24 @@ export const authApi = {
     try {
       const res: any = await apiClient.post('/auth/kakao', { authorizationCode, redirectUri });
       const tokenData: TokenResponse = res?.data || res;
+
       if (tokenData?.accessToken && typeof window !== 'undefined') {
         localStorage.setItem('accessToken', tokenData.accessToken);
         if (tokenData.refreshToken) {
           localStorage.setItem('refreshToken', tokenData.refreshToken);
         }
-        localStorage.setItem('userNickname', '카카오 사용자');
+        if (tokenData.nickname) {
+          localStorage.setItem('userNickname', tokenData.nickname);
+        }
+        if (tokenData.profileImageUrl) {
+          localStorage.setItem('userProfileImage', tokenData.profileImageUrl);
+        }
         window.dispatchEvent(new Event('auth-change'));
       }
       return tokenData;
-    } catch {
-      // 카카오 백엔드 미연결 시 개발 테스트용 토큰
-      const mockToken: TokenResponse = {
-        accessToken: 'MOCK_KAKAO_JWT_' + Date.now(),
-        refreshToken: 'MOCK_KAKAO_REFRESH_' + Date.now(),
-        expiresIn: 3600,
-      };
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('accessToken', mockToken.accessToken);
-        localStorage.setItem('refreshToken', mockToken.refreshToken);
-        localStorage.setItem('userNickname', '카카오 사용자');
-        window.dispatchEvent(new Event('auth-change'));
-      }
-      return mockToken;
+    } catch (err) {
+      console.error('카카오 로그인 API 호출 실패:', err);
+      throw err;
     }
   },
 
@@ -53,6 +51,7 @@ export const authApi = {
         localStorage.removeItem('accessToken');
         localStorage.removeItem('refreshToken');
         localStorage.removeItem('userNickname');
+        localStorage.removeItem('userProfileImage');
         window.dispatchEvent(new Event('auth-change'));
       }
     }

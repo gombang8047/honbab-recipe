@@ -42,16 +42,40 @@ public class AuthService {
 
         // 2. 카카오 사용자 정보 조회
         Map<String, Object> userInfo = kakaoAuthClient.getUserInfo(kakaoAccessToken);
+        log.info("카카오 getUserInfo 원본 응답: {}", userInfo);
 
         String oauthId = String.valueOf(userInfo.get("id"));
         @SuppressWarnings("unchecked")
+        Map<String, Object> properties = (Map<String, Object>) userInfo.get("properties");
+        @SuppressWarnings("unchecked")
         Map<String, Object> kakaoAccount = (Map<String, Object>) userInfo.get("kakao_account");
         @SuppressWarnings("unchecked")
-        Map<String, Object> profile = (Map<String, Object>) kakaoAccount.get("profile");
+        Map<String, Object> profile = kakaoAccount != null ? (Map<String, Object>) kakaoAccount.get("profile") : null;
 
-        String email = (String) kakaoAccount.get("email");
-        String nickname = (String) profile.get("nickname");
-        String profileImage = (String) profile.get("profile_image_url");
+        // 이메일 추출
+        String email = kakaoAccount != null ? (String) kakaoAccount.get("email") : null;
+        if (email == null || email.isBlank()) {
+            email = "kakao_" + oauthId + "@honbab.com";
+        }
+
+        // 닉네임 추출 (profile -> properties -> 기본값 순서)
+        String nickname = null;
+        if (profile != null && profile.get("nickname") != null) {
+            nickname = (String) profile.get("nickname");
+        } else if (properties != null && properties.get("nickname") != null) {
+            nickname = (String) properties.get("nickname");
+        }
+        if (nickname == null || nickname.isBlank()) {
+            nickname = "혼밥러_" + (oauthId.length() > 4 ? oauthId.substring(oauthId.length() - 4) : oauthId);
+        }
+
+        // 프로필 사진 추출 (profile -> properties 순서)
+        String profileImage = null;
+        if (profile != null && profile.get("profile_image_url") != null) {
+            profileImage = (String) profile.get("profile_image_url");
+        } else if (properties != null && properties.get("profile_image") != null) {
+            profileImage = (String) properties.get("profile_image");
+        }
 
         // 3. 사용자 생성 또는 조회
         User user = userService.findOrCreateByOAuth("KAKAO", oauthId, email, nickname, profileImage);
@@ -64,9 +88,10 @@ public class AuthService {
         redisTemplate.opsForValue().set(
                 "RT:" + user.getId(), refreshToken, 14, TimeUnit.DAYS);
 
-        log.info("카카오 로그인 성공: userId={}, email={}", user.getId(), user.getEmail());
+        log.info("카카오 로그인 성공: userId={}, nickname={}, email={}", user.getId(), user.getNickname(), user.getEmail());
 
-        return TokenResponse.of(accessToken, refreshToken, accessTokenValidityMs / 1000);
+        return TokenResponse.of(accessToken, refreshToken, accessTokenValidityMs / 1000,
+                user.getId(), user.getNickname(), user.getProfileImageUrl());
     }
 
     /**
