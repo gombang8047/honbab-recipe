@@ -27,16 +27,10 @@ export default function LoginPage() {
     window.location.href = kakaoAuthUrl;
   };
 
-  // 2. 개발/테스트용 원클릭 카카오 로그인 (API 키 없이 바로 체험)
   const handleDevKakaoLogin = async () => {
     setLoading(true);
     try {
-      const tokens = await authApi.kakaoLogin('DEV_MOCK_KAKAO_CODE', REDIRECT_URI);
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('accessToken', tokens.accessToken);
-        localStorage.setItem('refreshToken', tokens.refreshToken);
-        localStorage.setItem('userNickname', '카카오 사용자');
-      }
+      await authApi.kakaoLogin('DEV_MOCK_KAKAO_CODE', REDIRECT_URI);
       router.push('/');
     } catch (err) {
       console.error(err);

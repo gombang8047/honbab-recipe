@@ -3,7 +3,7 @@
 import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import { authApi } from '@/services/authApi';
-import { CheckCircle2, AlertCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 function KakaoCallbackContent() {
   const searchParams = useSearchParams();
@@ -20,15 +20,8 @@ function KakaoCallbackContent() {
     const redirectUri = window.location.origin + window.location.pathname;
 
     authApi.kakaoLogin(code, redirectUri)
-      .then((tokens) => {
-        if (typeof window !== 'undefined') {
-          localStorage.setItem('accessToken', tokens.accessToken);
-          localStorage.setItem('refreshToken', tokens.refreshToken);
-          localStorage.setItem('userNickname', '카카오 사용자');
-        }
-        setTimeout(() => {
-          router.push('/');
-        }, 1000);
+      .then(() => {
+        router.replace('/');
       })
       .catch((err) => {
         console.error(err);

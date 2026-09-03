@@ -21,6 +21,7 @@ Thumbs.db
 # Environment
 .env
 *.env.local
+prisma.config.js
 
 # Logs
 *.log

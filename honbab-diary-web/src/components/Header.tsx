@@ -1,8 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { useRouter, usePathname } from 'next/navigation';
 import { ChefHat, ShoppingCart, Search, User, LogOut } from 'lucide-react';
 import { cartApi } from '@/services/cartApi';
 import { authApi } from '@/services/authApi';
@@ -13,24 +13,54 @@ interface HeaderProps {
 
 export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
   const router = useRouter();
+  const pathname = usePathname();
   const [count, setCount] = useState<number>(propCartCount ?? 3);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [nickname, setNickname] = useState<string>('카카오 사용자');
+  const [mounted, setMounted] = useState<boolean>(false);
+
+  const syncAuthState = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    const token = localStorage.getItem('accessToken');
+    const valid = !!token && token.trim() !== '';
+    setIsLoggedIn(valid);
+
+    const storedName = localStorage.getItem('userNickname');
+    if (storedName) {
+      setNickname(storedName);
+    } else {
+      setNickname('카카오 사용자');
+    }
+  }, []);
 
   useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('accessToken');
-      setIsLoggedIn(!!token);
-      const storedName = localStorage.getItem('userNickname');
-      if (storedName) setNickname(storedName);
-    }
+    setMounted(true);
+    syncAuthState();
 
+    const handleAuthChange = () => {
+      syncAuthState();
+    };
+
+    window.addEventListener('auth-change', handleAuthChange);
+    window.addEventListener('storage', handleAuthChange);
+
+    // Fetch Cart
     cartApi.getCart().then((cart) => {
       if (cart && typeof cart.totalItems === 'number') {
         setCount(cart.totalItems);
       }
     }).catch(() => {});
-  }, []);
+
+    return () => {
+      window.removeEventListener('auth-change', handleAuthChange);
+      window.removeEventListener('storage', handleAuthChange);
+    };
+  }, [syncAuthState]);
+
+  // 페이지 이동(라우트 변경) 시에도 로그인 상태 재동기화
+  useEffect(() => {
+    syncAuthState();
+  }, [pathname, syncAuthState]);
 
   const handleLogout = async () => {
     await authApi.logout();
@@ -77,7 +107,7 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
           )}
         </Link>
 
-        {isLoggedIn ? (
+        {mounted && isLoggedIn ? (
           <div className="flex items-center gap-2">
             <span className="text-xs text-amber-300 bg-amber-500/10 px-3 py-1.5 rounded-full border border-amber-500/30 hidden sm:inline-block">
               👤 {nickname}
