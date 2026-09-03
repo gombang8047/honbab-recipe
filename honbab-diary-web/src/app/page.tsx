@@ -1,28 +1,90 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { ShortsItem, shortsApi } from '@/services/shortsApi';
 import { recipeApi } from '@/services/recipeApi';
 import { ShortsCard } from '@/components/ShortsCard';
 import { ShortsPlayerModal } from '@/components/ShortsPlayerModal';
 import { AiConversionModal } from '@/components/AiConversionModal';
 import { useRouter } from 'next/navigation';
-import { Sparkles, TrendingUp, Filter } from 'lucide-react';
+import { Sparkles, TrendingUp, Filter, Loader2 } from 'lucide-react';
+
+const PAGE_SIZE = 8;
 
 export default function HomePage() {
   const [shortsList, setShortsList] = useState<ShortsItem[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(0);
+  const [hasMore, setHasMore] = useState(true);
+  const [initialLoading, setInitialLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [selectedTag, setSelectedTag] = useState<string>('ALL');
   const [convertingShorts, setConvertingShorts] = useState<ShortsItem | null>(null);
   const [playingShorts, setPlayingShorts] = useState<ShortsItem | null>(null);
+
+  const observerTarget = useRef<HTMLDivElement | null>(null);
   const router = useRouter();
 
+  // 최초 8개 로딩
   useEffect(() => {
-    shortsApi.getFeed().then((data) => {
-      setShortsList(data);
-      setLoading(false);
+    let isMounted = true;
+    setInitialLoading(true);
+
+    shortsApi.getFeedPaginated(0, PAGE_SIZE).then((res) => {
+      if (isMounted) {
+        setShortsList(res.items);
+        setHasMore(res.hasMore);
+        setPage(0);
+        setInitialLoading(false);
+      }
     });
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
+
+  // 다음 8개 추가 로딩 함수
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore || initialLoading) return;
+
+    setLoadingMore(true);
+    const nextPage = page + 1;
+
+    try {
+      const res = await shortsApi.getFeedPaginated(nextPage, PAGE_SIZE);
+
+      setShortsList((prev) => {
+        const existingIds = new Set(prev.map((item) => item.id));
+        const newItems = res.items.filter((item) => !existingIds.has(item.id));
+        return [...prev, ...newItems];
+      });
+
+      setPage(nextPage);
+      setHasMore(res.hasMore);
+    } catch (err) {
+      console.error('추가 쇼츠 로딩 실패:', err);
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [page, hasMore, loadingMore, initialLoading]);
+
+  // 무한 스크롤 감지 (IntersectionObserver)
+  useEffect(() => {
+    const target = observerTarget.current;
+    if (!target) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting && hasMore && !loadingMore && !initialLoading) {
+          loadMore();
+        }
+      },
+      { rootMargin: '200px', threshold: 0.1 }
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [loadMore, hasMore, loadingMore, initialLoading]);
 
   const handleConvertAi = async (shorts: ShortsItem) => {
     setConvertingShorts(shorts);
@@ -40,7 +102,7 @@ export default function HomePage() {
 
   const filteredList = selectedTag === 'ALL'
     ? shortsList
-    : shortsList.filter(s => s.tags && s.tags.some(t => t.includes(selectedTag) || selectedTag.includes(t)));
+    : shortsList.filter((s) => s.tags && s.tags.some((t) => t.includes(selectedTag) || selectedTag.includes(t)));
 
   return (
     <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-8">
@@ -80,28 +142,46 @@ export default function HomePage() {
 
         <div className="flex items-center gap-2 text-xs text-slate-400 shrink-0">
           <TrendingUp size={14} className="text-amber-400" />
-          <span>실시간 인기순</span>
+          <span>8개씩 무한 스크롤</span>
         </div>
       </div>
 
       {/* Shorts Cards Grid */}
-      {loading ? (
+      {initialLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {[1, 2, 3, 4].map((n) => (
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((n) => (
             <div key={n} className="bg-slate-900 rounded-2xl aspect-[9/16] animate-pulse border border-slate-800" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-          {filteredList.map((shorts) => (
-            <ShortsCard
-              key={shorts.id}
-              shorts={shorts}
-              onConvertAi={handleConvertAi}
-              onPlay={setPlayingShorts}
-            />
-          ))}
-        </div>
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+            {filteredList.map((shorts) => (
+              <ShortsCard
+                key={shorts.id}
+                shorts={shorts}
+                onConvertAi={handleConvertAi}
+                onPlay={setPlayingShorts}
+              />
+            ))}
+          </div>
+
+          {/* Infinite Scroll Trigger Observer Target */}
+          <div ref={observerTarget} className="w-full py-8 flex flex-col items-center justify-center min-h-[80px]">
+            {loadingMore && (
+              <div className="flex items-center gap-2 text-orange-400 text-sm font-semibold bg-slate-900/80 border border-orange-500/30 px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md">
+                <Loader2 size={18} className="animate-spin" />
+                <span>새로운 요리 쇼츠 8개를 불러오는 중...</span>
+              </div>
+            )}
+
+            {!hasMore && shortsList.length > 0 && (
+              <div className="text-xs text-slate-500 font-medium py-4">
+                🎉 모든 요리 쇼츠를 다 불러왔습니다!
+              </div>
+            )}
+          </div>
+        </>
       )}
 
       {/* Shorts Video Player Modal */}
