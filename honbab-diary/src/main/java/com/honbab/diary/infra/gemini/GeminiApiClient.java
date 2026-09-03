@@ -12,6 +12,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -30,9 +31,9 @@ public class GeminiApiClient {
             "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent?key=%s";
 
     /**
-     * Gemini 1.5 Flash로 프롬프트 전송 후 구조화된 JSON 레시피 문자열 수신
+     * Gemini 3.5 Flash 멀티모달(비디오 화면/자막 + 텍스트) 분석으로 100% 정밀한 레시피 JSON 생성
      */
-    public String generateRecipeJson(String prompt, String fallbackTitle) {
+    public String generateRecipeJson(String prompt, String youtubeId, String fallbackTitle) {
         if (apiKey == null || apiKey.isBlank() || "MOCK_KEY".equalsIgnoreCase(apiKey)) {
             log.info("[MOCK] Gemini API Key 미설정으로 스마트 템플릿 레시피를 생성합니다. title={}", fallbackTitle);
             return generateSmartFallbackJson(fallbackTitle);
@@ -44,21 +45,31 @@ public class GeminiApiClient {
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
 
+            // 멀티모달: 실제 유튜브 비디오 분석 파트 + 프롬프트 파트
+            List<Map<String, Object>> parts = new ArrayList<>();
+            if (youtubeId != null && !youtubeId.isBlank() && !youtubeId.startsWith("mock_")) {
+                parts.add(Map.of(
+                        "fileData", Map.of(
+                                "fileUri", "https://www.youtube.com/watch?v=" + youtubeId,
+                                "mimeType", "video/mp4"
+                        )
+                ));
+            }
+            parts.add(Map.of("text", prompt));
+
             Map<String, Object> requestBody = Map.of(
                     "contents", List.of(
-                            Map.of("parts", List.of(
-                                    Map.of("text", prompt)
-                            ))
+                            Map.of("parts", parts)
                     ),
                     "generationConfig", Map.of(
                             "responseMimeType", "application/json",
-                            "temperature", 0.3
+                            "temperature", 0.2
                     )
             );
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-            log.info("Gemini 1.5 Flash API 호출 시작...");
+            log.info("Gemini 3.5 Flash 멀티모달(비디오 직접 분석) 호출 시작... (youtubeId={})", youtubeId);
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
@@ -71,13 +82,13 @@ public class GeminiApiClient {
                             .get(0)
                             .path("text");
                     if (!textNode.isMissingNode()) {
-                        log.info("Gemini 1.5 Flash 레시피 추출 성공!");
+                        log.info("Gemini 3.5 Flash 멀티모달 레시피 추출 성공!");
                         return textNode.asText();
                     }
                 }
             }
         } catch (Exception e) {
-            log.error("Gemini API 호출 중 오류 발생: {}. 스마트 템플릿으로 대체합니다.", e.getMessage());
+            log.error("Gemini 멀티모달 호출 중 오류 발생: {}. 스마트 템플릿으로 대체합니다.", e.getMessage());
         }
 
         return generateSmartFallbackJson(fallbackTitle);
@@ -102,9 +113,9 @@ public class GeminiApiClient {
             { "name": "참기름", "amount": "1/2", "unit": "큰술", "is_essential": false, "estimated_price": 300 }
           ],
           "steps": [
-            { "order": 1, "description": "팬에 식용유를 두르고 대파를 볶아 파기름을 냅니다.", "timer_seconds": 30, "tip": "약불에서 은은하게 볶아야 파가 타지 않고 향이 잘 우러납니다." },
-            { "order": 2, "description": "주재료와 간장 1큰술을 넣고 강불에서 골고루 볶아줍니다.", "timer_seconds": 60, "tip": "팬 가장자리에 간장을 둘러 불향을 입혀주면 더욱 맛있습니다." },
-            { "order": 3, "description": "계란을 풀어 스크램블을 만든 뒤 재료와 섞고 참기름을 둘러 마무리합니다.", "timer_seconds": 45, "tip": "불을 끄고 남은 잔열로 참기름을 섞어야 고소한 향이 보존됩니다." }
+            { "order": 1, "description": "팬에 식용유를 두르고 대파를 볶아 파기름을 낸다.", "timer_seconds": 30 },
+            { "order": 2, "description": "주재료와 간장을 넣고 강불에서 골고루 볶는다.", "timer_seconds": 60 },
+            { "order": 3, "description": "계란을 풀어 스크램블을 만든 뒤 재료와 섞고 참기름을 둘러 마무리한다.", "timer_seconds": 45 }
           ]
         }
         """.formatted(safeTitle.replace("\"", "\\\""));

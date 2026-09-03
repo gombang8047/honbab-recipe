@@ -33,13 +33,14 @@ public class AiRecipeService {
     private final IngredientRepository ingredientRepository;
     private final GeminiApiClient geminiApiClient;
     private final GeminiPromptBuilder geminiPromptBuilder;
+    private final com.honbab.diary.infra.youtube.YoutubeApiClient youtubeApiClient;
     private final ObjectMapper objectMapper;
 
     /**
      * 쇼츠를 AI로 분석하여 1인분 레시피로 변환
      * 1. DB 캐시 확인 (이미 변환된 레시피가 있으면 0초 즉시 반환)
-     * 2. 없으면 쇼츠 제목, 설명란, 태그 추출
-     * 3. Google Gemini 1.5 Flash로 정밀 레시피 JSON 생성
+     * 2. 없으면 쇼츠 제목, 설명란, 댓글, 영상 직접 분석
+     * 3. Google Gemini 3.5 Flash 멀티모달로 정밀 레시피 JSON 생성
      * 4. PostgreSQL DB 영구 저장 후 반환
      */
     @Transactional
@@ -54,7 +55,7 @@ public class AiRecipeService {
         }
 
         Shorts shorts = shortsService.findShortsById(shortsId);
-        log.info("Google Gemini 1.5 Flash 레시피 변환 시작: shortsId={}, title={}", shortsId, shorts.getTitle());
+        log.info("Google Gemini 멀티모달 레시피 변환 시작: shortsId={}, title={}", shortsId, shorts.getTitle());
 
         try {
             // 2. 쇼츠 메타데이터에서 설명란 및 태그 추출
@@ -80,9 +81,12 @@ public class AiRecipeService {
                 }
             }
 
-            // 3. Gemini 프롬프트 생성 및 호출
-            String prompt = geminiPromptBuilder.buildRecipePrompt(title, description, tags);
-            String geminiResponseJson = geminiApiClient.generateRecipeJson(prompt, title);
+            // 3. 고정 댓글/인기 댓글 조회
+            String comments = youtubeApiClient.getTopComment(shorts.getYoutubeId());
+
+            // 4. Gemini 프롬프트 생성 및 멀티모달(비디오+텍스트) 호출
+            String prompt = geminiPromptBuilder.buildRecipePrompt(title, description, comments, tags);
+            String geminiResponseJson = geminiApiClient.generateRecipeJson(prompt, shorts.getYoutubeId(), title);
 
             // 4. JSON 파싱
             Map<String, Object> recipeData = objectMapper.readValue(
