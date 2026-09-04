@@ -26,7 +26,7 @@ public class ShortsCrawlingService {
     private final TagRepository tagRepository;
 
     /**
-     * 자취생 요리 특화 검색 키워드 풀
+     * 자취생 요리 특화 검색 키워드 풀 (25개 인기 요리/재료/상황별)
      */
     public static final List<String> SEARCH_KEYWORDS = List.of(
             "자취요리",
@@ -36,11 +36,65 @@ public class ShortsCrawlingService {
             "스팸요리",
             "계란요리",
             "혼밥레시피",
-            "자취생 1인분 요리"
+            "자취생 1인분 요리",
+            "김치볶음밥 레시피",
+            "라면 맛있게 끓이는법",
+            "삼겹살 볶음밥",
+            "참치마요 덮밥",
+            "간단 야식",
+            "에어프라이어 자취요리",
+            "초간단 파스타",
+            "두부 요리 자취",
+            "냉장고 파먹기 요리",
+            "자취생 아침밥",
+            "1인분 찌개",
+            "자취 가성비 요리",
+            "순두부 열라면",
+            "초간단 볶음밥",
+            "자취 술안주",
+            "토스트 초간단",
+            "닭가슴살 혼밥"
     );
 
     /**
-     * 매일 오전 6시, 오후 6시 정기 크롤링
+     * 크롤링 제외 블랙리스트 (단순 먹방, 식사, 맛집 탐방 등 레시피가 아닌 영상 차단)
+     */
+    public static final List<String> EXCLUDE_KEYWORDS = List.of(
+            "먹방",
+            "mukbang",
+            "asmr",
+            "리얼사운드",
+            "식폭행",
+            "대식가",
+            "맛집",
+            "뷔페",
+            "탐방",
+            "통째로 먹기",
+            "푸드파이터",
+            "배달음식"
+    );
+
+    /**
+     * 먹방/비레시피 영상 필터링 판별
+     */
+    private boolean isExcludedVideo(String title, String channelName, Set<String> tags) {
+        String lowerTitle = (title != null ? title.toLowerCase() : "");
+        String lowerChannel = (channelName != null ? channelName.toLowerCase() : "");
+
+        for (String black : EXCLUDE_KEYWORDS) {
+            String lowerBlack = black.toLowerCase();
+            if (lowerTitle.contains(lowerBlack) || lowerChannel.contains(lowerBlack)) {
+                return true;
+            }
+            if (tags != null && tags.stream().anyMatch(t -> t.toLowerCase().contains(lowerBlack))) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /**
+     * 매일 오전 6시, 오후 6시 정기 크롤링 (하루 2회)
      */
     @Scheduled(cron = "0 0 6,18 * * *")
     @Transactional
@@ -48,7 +102,7 @@ public class ShortsCrawlingService {
         log.info("=== [정기 크롤링] 유튜브 자취생 요리 쇼츠 크롤링 시작 ===");
         int totalNewSaved = 0;
 
-        for (String keyword : SEARCH_KEYWORDS) {
+        for (String keyword : SEARCH_KEYWORDS.subList(0, Math.min(8, SEARCH_KEYWORDS.size()))) {
             try {
                 CrawlResultResponse result = crawlByKeyword(keyword, 10);
                 totalNewSaved += result.getNewlySavedCount();
@@ -124,6 +178,13 @@ public class ShortsCrawlingService {
 
                 // 태그 추출 및 매핑
                 Set<String> tagNames = youtubeDataParser.extractTags(detail);
+
+                // 먹방/비레시피 영상 필터링 제외
+                if (isExcludedVideo(shorts.getTitle(), shorts.getChannelName(), tagNames)) {
+                    log.info("먹방/비레시피 영상 제외 건너뜀: [{}] {}", shorts.getChannelName(), shorts.getTitle());
+                    continue;
+                }
+
                 for (String tagName : tagNames) {
                     Tag tag = tagRepository.findByName(tagName)
                             .orElseGet(() -> tagRepository.save(new Tag(tagName)));

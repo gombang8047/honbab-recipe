@@ -80,13 +80,12 @@ export default function HomePage() {
         res = await shortsApi.getTrendingPaginated(0, batchSize);
       } else {
         // RANDOM / LATEST
-        res = await shortsApi.getFeedPaginated(0, currentSort === 'RANDOM' ? 24 : batchSize);
+        res = await shortsApi.getFeedPaginated(0, batchSize);
       }
 
       let finalItems = res.items;
       if (currentSort === 'RANDOM' && !currentQuery.trim() && finalItems.length > 0) {
-        // 새로고침 시 화면 열 배수(batchSize)만큼 랜덤 셔플하여 표시
-        finalItems = shuffleArray(finalItems).slice(0, batchSize);
+        finalItems = shuffleArray(finalItems);
       }
 
       setShortsList(finalItems);
@@ -131,10 +130,15 @@ export default function HomePage() {
         res = await shortsApi.getFeedPaginated(nextPage, batchSize);
       }
 
+      let newItems = res.items;
+      if (sortMode === 'RANDOM' && !searchQuery.trim() && newItems.length > 0) {
+        newItems = shuffleArray(newItems);
+      }
+
       setShortsList((prev) => {
         const existingIds = new Set(prev.map((item) => item.id));
-        const newItems = res.items.filter((item) => !existingIds.has(item.id));
-        return [...prev, ...newItems];
+        const filtered = newItems.filter((item) => !existingIds.has(item.id));
+        return [...prev, ...filtered];
       });
 
       setPage(nextPage);
@@ -157,7 +161,7 @@ export default function HomePage() {
           loadMore();
         }
       },
-      { rootMargin: '200px', threshold: 0.1 }
+      { rootMargin: '300px', threshold: 0.1 }
     );
 
     observer.observe(target);
