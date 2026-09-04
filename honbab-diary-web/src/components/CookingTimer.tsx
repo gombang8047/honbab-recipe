@@ -11,6 +11,10 @@ interface CookingTimerProps {
 }
 
 export const CookingTimer: React.FC<CookingTimerProps> = ({ seconds, stepOrder }) => {
+  if (!seconds || seconds <= 0) {
+    return null;
+  }
+
   const [timeLeft, setTimeLeft] = useState(seconds);
   const [isRunning, setIsRunning] = useState(false);
   const [soundType, setSoundType] = useState<TimerSoundType>('ovenBell');
