@@ -41,6 +41,9 @@ function syncWithLocalBookmarks(items: ShortsItem[]): ShortsItem[] {
   }
 }
 
+// 무작위 페이지 중복 방문 방지 Set
+const visitedRandomPages = new Set<number>();
+
 export const shortsApi = {
   getFeedPaginated: async (page = 0, size = 8): Promise<PaginatedShorts> => {
     try {
@@ -96,6 +99,68 @@ export const shortsApi = {
         page: 0,
       };
     }
+  },
+
+  getRandomPaginated: async (page = 0, size = 8, totalHint?: number): Promise<PaginatedShorts> => {
+    // 1. 백엔드 /shorts/random API 우선 호출
+    try {
+      const res: any = await apiClient.get(`/shorts/random?page=${page}&size=${size}`);
+      const data = res.data;
+      if (data && Array.isArray(data.content) && data.content.length > 0) {
+        return {
+          items: syncWithLocalBookmarks(data.content),
+          hasMore: !data.last,
+          totalElements: data.totalElements,
+          page: data.number ?? page,
+        };
+      }
+    } catch {
+      // 백엔드가 아직 /shorts/random 없이 구동 중일 경우 Fallback 실행
+    }
+
+    // 2. Fallback: 전체 쇼츠(totalElements) 범위에서 무작위 페이지 선택
+    try {
+      let total = totalHint;
+      if (!total || total <= size) {
+        const countRes: any = await apiClient.get(`/shorts?page=0&size=1`);
+        total = countRes?.data?.totalElements || 500;
+      }
+
+      if (page === 0) {
+        visitedRandomPages.clear();
+      }
+
+      const totalPages = Math.max(1, Math.floor(total / size));
+      let randomPage = Math.floor(Math.random() * totalPages);
+
+      let attempts = 0;
+      while (visitedRandomPages.has(randomPage) && attempts < 10 && visitedRandomPages.size < totalPages) {
+        randomPage = Math.floor(Math.random() * totalPages);
+        attempts++;
+      }
+      visitedRandomPages.add(randomPage);
+
+      const res: any = await apiClient.get(`/shorts?page=${randomPage}&size=${size}`);
+      const data = res.data;
+      if (data && Array.isArray(data.content)) {
+        const shuffled = [...data.content].sort(() => Math.random() - 0.5);
+        return {
+          items: syncWithLocalBookmarks(shuffled),
+          hasMore: visitedRandomPages.size < totalPages,
+          totalElements: data.totalElements,
+          page,
+        };
+      }
+    } catch (e) {
+      console.error('랜덤 쇼츠 조회 실패:', e);
+    }
+
+    return {
+      items: [],
+      hasMore: false,
+      totalElements: 0,
+      page: 0,
+    };
   },
 
   searchPaginated: async (keyword: string, page = 0, size = 8): Promise<PaginatedShorts> => {

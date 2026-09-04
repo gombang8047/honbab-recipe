@@ -20,6 +20,11 @@ public interface ShortsRepository extends JpaRepository<Shorts, Long> {
     @Query("SELECT s FROM Shorts s WHERE s.status = 'ACTIVE' ORDER BY s.viewCount DESC")
     Page<Shorts> findTrendingShorts(Pageable pageable);
 
+    @Query(value = "SELECT * FROM shorts WHERE status = 'ACTIVE' ORDER BY RANDOM()",
+           countQuery = "SELECT count(*) FROM shorts WHERE status = 'ACTIVE'",
+           nativeQuery = true)
+    Page<Shorts> findRandomShorts(Pageable pageable);
+
     @Query("SELECT DISTINCT s FROM Shorts s " +
             "LEFT JOIN s.tags t " +
             "WHERE s.status = 'ACTIVE' AND (" +

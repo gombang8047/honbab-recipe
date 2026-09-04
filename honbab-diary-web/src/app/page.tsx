@@ -28,6 +28,7 @@ export default function HomePage() {
   const [gridCols, setGridCols] = useState<number>(4);
 
   const observerTarget = useRef<HTMLDivElement | null>(null);
+  const totalCountRef = useRef<number>(530);
 
   // 화면 폭에 따른 현재 그리드 열(column) 개수 감지
   // Tailwind 기준: lg(>=1024px) -> 4열, md(>=768px) -> 3열, sm(>=640px) -> 2열, 모바일 -> 1열
@@ -55,16 +56,6 @@ export default function HomePage() {
     return cols * 2;
   }, [getResponsiveColumnCount]);
 
-  // 배열을 무작위로 섞는 헬퍼 함수 (피셔-예이츠 셔플)
-  const shuffleArray = <T,>(array: T[]): T[] => {
-    const shuffled = [...array];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  };
-
   // 피드 데이터 로딩 함수 (새로고침 / 정렬 변경 / 검색 시 호출)
   const fetchInitialData = useCallback(async (currentSort = sortMode, currentQuery = searchQuery) => {
     setInitialLoading(true);
@@ -78,17 +69,18 @@ export default function HomePage() {
         res = await shortsApi.searchPaginated(currentQuery.trim(), 0, batchSize);
       } else if (currentSort === 'TRENDING') {
         res = await shortsApi.getTrendingPaginated(0, batchSize);
+      } else if (currentSort === 'RANDOM') {
+        res = await shortsApi.getRandomPaginated(0, batchSize, totalCountRef.current);
       } else {
-        // RANDOM / LATEST
+        // LATEST
         res = await shortsApi.getFeedPaginated(0, batchSize);
       }
 
-      let finalItems = res.items;
-      if (currentSort === 'RANDOM' && !currentQuery.trim() && finalItems.length > 0) {
-        finalItems = shuffleArray(finalItems);
+      if (res.totalElements) {
+        totalCountRef.current = res.totalElements;
       }
 
-      setShortsList(finalItems);
+      setShortsList(res.items);
       setHasMore(res.hasMore);
       setPage(0);
     } catch (err) {
@@ -126,15 +118,17 @@ export default function HomePage() {
         res = await shortsApi.searchPaginated(searchQuery.trim(), nextPage, batchSize);
       } else if (sortMode === 'TRENDING') {
         res = await shortsApi.getTrendingPaginated(nextPage, batchSize);
+      } else if (sortMode === 'RANDOM') {
+        res = await shortsApi.getRandomPaginated(nextPage, batchSize, totalCountRef.current);
       } else {
         res = await shortsApi.getFeedPaginated(nextPage, batchSize);
       }
 
-      let newItems = res.items;
-      if (sortMode === 'RANDOM' && !searchQuery.trim() && newItems.length > 0) {
-        newItems = shuffleArray(newItems);
+      if (res.totalElements) {
+        totalCountRef.current = res.totalElements;
       }
 
+      const newItems = res.items;
       setShortsList((prev) => {
         const existingIds = new Set(prev.map((item) => item.id));
         const filtered = newItems.filter((item) => !existingIds.has(item.id));

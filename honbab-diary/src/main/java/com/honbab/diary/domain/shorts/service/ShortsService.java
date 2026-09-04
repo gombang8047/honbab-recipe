@@ -44,6 +44,14 @@ public class ShortsService {
     }
 
     /**
+     * 무작위(랜덤) 쇼츠 조회
+     */
+    public Page<ShortsResponse> getRandom(Pageable pageable) {
+        return shortsRepository.findRandomShorts(pageable)
+                .map(ShortsResponse::from);
+    }
+
+    /**
      * 쇼츠 검색 (제목, 채널명, 태그, 레시피 재료명 통합 검색)
      */
     public Page<ShortsResponse> search(String keyword, Pageable pageable) {
