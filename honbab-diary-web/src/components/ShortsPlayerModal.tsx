@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useEffect } from 'react';
-import { ShortsItem } from '@/services/shortsApi';
-import { X, Sparkles, ExternalLink, Eye, Clock, Youtube } from 'lucide-react';
+import React, { useEffect, useState } from 'react';
+import { ShortsItem, shortsApi } from '@/services/shortsApi';
+import { X, Sparkles, ExternalLink, Eye, Clock, Youtube, Bookmark } from 'lucide-react';
+import { soundService } from '@/services/soundService';
 
 interface ShortsPlayerModalProps {
   isOpen: boolean;
@@ -17,6 +18,34 @@ export const ShortsPlayerModal: React.FC<ShortsPlayerModalProps> = ({
   onClose,
   onConvertAi,
 }) => {
+  const [bookmarked, setBookmarked] = useState<boolean>(shorts?.bookmarked ?? false);
+
+  useEffect(() => {
+    if (shorts) {
+      setBookmarked(shorts.bookmarked);
+    }
+  }, [shorts]);
+
+  useEffect(() => {
+    const handleBookmarkChanged = (e: CustomEvent) => {
+      if (shorts && e.detail && e.detail.id === shorts.id) {
+        setBookmarked(e.detail.bookmarked);
+      }
+    };
+    window.addEventListener('bookmark-changed', handleBookmarkChanged as EventListener);
+    return () => {
+      window.removeEventListener('bookmark-changed', handleBookmarkChanged as EventListener);
+    };
+  }, [shorts]);
+
+  const handleToggleBookmark = async () => {
+    if (!shorts) return;
+    soundService.playButtonClick();
+    const newStatus = !bookmarked;
+    setBookmarked(newStatus);
+    await shortsApi.toggleBookmark(shorts.id, bookmarked, shorts);
+  };
+
   // Close modal on ESC key
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -68,10 +97,23 @@ export const ShortsPlayerModal: React.FC<ShortsPlayerModalProps> = ({
         {/* Video Info & Actions Sidebar */}
         <div className="flex-1 p-6 md:p-8 flex flex-col justify-between gap-6 overflow-y-auto bg-gradient-to-b from-slate-900 to-slate-950">
           <div className="flex flex-col gap-4">
-            {/* Channel info */}
-            <div className="flex items-center gap-2 text-xs text-orange-400 font-semibold tracking-wide">
-              <Youtube size={16} />
-              <span>{shorts.channelName}</span>
+            {/* Channel info & Bookmark button */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs text-orange-400 font-semibold tracking-wide">
+                <Youtube size={16} />
+                <span>{shorts.channelName}</span>
+              </div>
+              <button
+                onClick={handleToggleBookmark}
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+                  bookmarked
+                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
+                    : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:border-slate-600'
+                }`}
+              >
+                <Bookmark size={14} fill={bookmarked ? 'currentColor' : 'none'} />
+                <span>{bookmarked ? '저장됨' : '북마크'}</span>
+              </button>
             </div>
 
             {/* Video Title */}

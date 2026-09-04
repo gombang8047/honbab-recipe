@@ -1,8 +1,9 @@
 'use client';
 
-import React, { useState } from 'react';
-import { ShortsItem } from '@/services/shortsApi';
+import React, { useState, useEffect } from 'react';
+import { ShortsItem, shortsApi } from '@/services/shortsApi';
 import { Play, Sparkles, Bookmark, Eye, Clock } from 'lucide-react';
+import { soundService } from '@/services/soundService';
 
 interface ShortsCardProps {
   shorts: ShortsItem;
@@ -13,9 +14,28 @@ interface ShortsCardProps {
 export const ShortsCard: React.FC<ShortsCardProps> = ({ shorts, onConvertAi, onPlay }) => {
   const [bookmarked, setBookmarked] = useState(shorts.bookmarked);
 
-  const toggleBookmark = (e: React.MouseEvent) => {
+  useEffect(() => {
+    setBookmarked(shorts.bookmarked);
+  }, [shorts.bookmarked]);
+
+  useEffect(() => {
+    const handleBookmarkChanged = (e: CustomEvent) => {
+      if (e.detail && e.detail.id === shorts.id) {
+        setBookmarked(e.detail.bookmarked);
+      }
+    };
+    window.addEventListener('bookmark-changed', handleBookmarkChanged as EventListener);
+    return () => {
+      window.removeEventListener('bookmark-changed', handleBookmarkChanged as EventListener);
+    };
+  }, [shorts.id]);
+
+  const toggleBookmark = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    setBookmarked(!bookmarked);
+    soundService.playButtonClick();
+    const newStatus = !bookmarked;
+    setBookmarked(newStatus);
+    await shortsApi.toggleBookmark(shorts.id, bookmarked, shorts);
   };
 
   return (

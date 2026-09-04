@@ -65,6 +65,14 @@ public class ShortsController {
         return ResponseEntity.ok(ApiResponse.ok());
     }
 
+    @Operation(summary = "북마크 목록", description = "내가 북마크한 쇼츠 목록을 조회합니다.")
+    @GetMapping("/bookmarks")
+    public ResponseEntity<ApiResponse<Page<ShortsResponse>>> getBookmarks(
+            @PageableDefault(size = 20) Pageable pageable, Authentication authentication) {
+        Long userId = (Long) authentication.getPrincipal();
+        return ResponseEntity.ok(ApiResponse.ok(shortsService.getBookmarks(userId, pageable)));
+    }
+
     @Operation(summary = "쇼츠 수동 크롤링 실행", description = "유튜브에서 키워드로 자취생 요리 쇼츠를 크롤링하여 DB에 저장합니다.")
     @PostMapping("/crawl")
     public ResponseEntity<ApiResponse<CrawlResultResponse>> crawlShorts(

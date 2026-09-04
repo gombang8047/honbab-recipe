@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { RecipeDetail, recipeApi } from '@/services/recipeApi';
 import { RecipeDetailView } from '@/components/RecipeDetailView';
 import { cartApi } from '@/services/cartApi';
+import { cartService } from '@/services/cartService';
 import { useParams, useRouter } from 'next/navigation';
 
 export default function RecipePage() {
@@ -21,7 +22,6 @@ export default function RecipePage() {
   }, [recipeId]);
 
   const handleAddToCart = async (id: number) => {
-    await cartApi.addFromRecipe(id);
     router.push('/cart');
   };
 

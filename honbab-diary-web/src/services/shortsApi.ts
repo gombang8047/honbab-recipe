@@ -17,59 +17,28 @@ export interface ShortsDetail extends ShortsItem {
   hasRecipe: boolean;
 }
 
-// Fallback mock data when backend is starting
-const MOCK_SHORTS: ShortsItem[] = [
-  {
-    id: 1,
-    youtubeId: "mock_shorts_01",
-    title: "5분컷 초간단 계란볶음밥 레시피! 자취생 필수 시청 🍳",
-    channelName: "자취요리왕",
-    thumbnailUrl: "https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=600&q=80",
-    durationSeconds: 45,
-    viewCount: 125000,
-    tags: ["자취요리", "계란볶음밥", "간단요리"],
-    bookmarked: false
-  },
-  {
-    id: 2,
-    youtubeId: "mock_shorts_02",
-    title: "원팬으로 끝내는 삼겹살 김치볶음밥 레시피 🔥",
-    channelName: "혼밥레시피",
-    thumbnailUrl: "https://images.unsplash.com/photo-1596560548464-f010549b84d7?w=600&q=80",
-    durationSeconds: 58,
-    viewCount: 89000,
-    tags: ["김치볶음밥", "원팬요리", "삼겹살"],
-    bookmarked: true
-  },
-  {
-    id: 3,
-    youtubeId: "mock_shorts_03",
-    title: "전자레인지 3분 완성! 폭신폭신 계란찜 🍲",
-    channelName: "초간단식당",
-    thumbnailUrl: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=600&q=80",
-    durationSeconds: 30,
-    viewCount: 230000,
-    tags: ["계란찜", "전자레인지", "초간단"],
-    bookmarked: false
-  },
-  {
-    id: 4,
-    youtubeId: "mock_shorts_04",
-    title: "남은 참치통조림으로 만드는 참치마요 덮밥 🍣",
-    channelName: "자취생일기",
-    thumbnailUrl: "https://images.unsplash.com/photo-1565299585323-38d6b0865b47?w=600&q=80",
-    durationSeconds: 50,
-    viewCount: 67000,
-    tags: ["참치마요", "덮밥", "1인분"],
-    bookmarked: false
-  }
-];
-
 export interface PaginatedShorts {
   items: ShortsItem[];
   hasMore: boolean;
   totalElements: number;
   page: number;
+}
+
+// Sync bookmarked status from localStorage
+function syncWithLocalBookmarks(items: ShortsItem[]): ShortsItem[] {
+  if (typeof window === 'undefined') return items;
+  try {
+    const localSaved = localStorage.getItem('honbab_local_bookmarks');
+    if (!localSaved) return items;
+    const list: ShortsItem[] = JSON.parse(localSaved);
+    const bookmarkedIds = new Set(list.map((s) => s.id));
+    return items.map((item) => ({
+      ...item,
+      bookmarked: bookmarkedIds.has(item.id),
+    }));
+  } catch {
+    return items;
+  }
 }
 
 export const shortsApi = {
@@ -79,23 +48,23 @@ export const shortsApi = {
       const data = res.data;
       if (data && Array.isArray(data.content)) {
         return {
-          items: data.content,
+          items: syncWithLocalBookmarks(data.content),
           hasMore: !data.last,
           totalElements: data.totalElements,
           page: data.number ?? page,
         };
       }
       return {
-        items: page === 0 ? MOCK_SHORTS : [],
+        items: [],
         hasMore: false,
-        totalElements: MOCK_SHORTS.length,
+        totalElements: 0,
         page: 0,
       };
     } catch {
       return {
-        items: page === 0 ? MOCK_SHORTS : [],
+        items: [],
         hasMore: false,
-        totalElements: MOCK_SHORTS.length,
+        totalElements: 0,
         page: 0,
       };
     }
@@ -106,11 +75,11 @@ export const shortsApi = {
       const res: any = await apiClient.get(`/shorts?page=${page}&size=${size}`);
       const content = res.data?.content;
       if (Array.isArray(content) && content.length > 0) {
-        return content;
+        return syncWithLocalBookmarks(content);
       }
-      return MOCK_SHORTS;
+      return [];
     } catch {
-      return MOCK_SHORTS;
+      return [];
     }
   },
 
@@ -119,11 +88,11 @@ export const shortsApi = {
       const res: any = await apiClient.get('/shorts/trending');
       const content = res.data?.content;
       if (Array.isArray(content) && content.length > 0) {
-        return content;
+        return syncWithLocalBookmarks(content);
       }
-      return MOCK_SHORTS;
+      return [];
     } catch {
-      return MOCK_SHORTS;
+      return [];
     }
   },
 
@@ -131,26 +100,74 @@ export const shortsApi = {
     try {
       const res: any = await apiClient.get(`/shorts/${id}`);
       if (res.data && res.data.title) {
-        return res.data;
+        const synced = syncWithLocalBookmarks([res.data])[0];
+        return { ...res.data, bookmarked: synced.bookmarked };
       }
-      const item = MOCK_SHORTS.find(s => s.id === id) || MOCK_SHORTS[0];
-      return { ...item, videoUrl: `https://www.youtube.com/shorts/${item.youtubeId}`, hasRecipe: true };
-    } catch {
-      const item = MOCK_SHORTS.find(s => s.id === id) || MOCK_SHORTS[0];
-      return { ...item, videoUrl: `https://www.youtube.com/shorts/${item.youtubeId}`, hasRecipe: true };
+      throw new Error('쇼츠 정보를 불러올 수 없습니다.');
+    } catch (e) {
+      throw e;
     }
   },
 
-  toggleBookmark: async (id: number, currentStatus: boolean): Promise<boolean> => {
+  getBookmarks: async (page = 0, size = 20): Promise<ShortsItem[]> => {
+    try {
+      const res: any = await apiClient.get(`/shorts/bookmarks?page=${page}&size=${size}`);
+      const content = res.data?.content;
+      if (Array.isArray(content) && content.length > 0) {
+        return content.map((item: any) => ({ ...item, bookmarked: true }));
+      }
+    } catch {
+      // Backend may not have endpoint or user is offline
+    }
+
+    // Fallback: LocalStorage Bookmarks
+    if (typeof window !== 'undefined') {
+      const localSaved = localStorage.getItem('honbab_local_bookmarks');
+      if (localSaved) {
+        try {
+          const list: ShortsItem[] = JSON.parse(localSaved);
+          if (Array.isArray(list)) {
+            return list;
+          }
+        } catch {}
+      }
+    }
+
+    return [];
+  },
+
+  toggleBookmark: async (id: number, currentStatus: boolean, item?: ShortsItem): Promise<boolean> => {
     try {
       if (currentStatus) {
         await apiClient.delete(`/shorts/${id}/bookmark`);
       } else {
         await apiClient.post(`/shorts/${id}/bookmark`);
       }
-      return !currentStatus;
     } catch {
-      return !currentStatus;
+      // Proceed even if backend is offline
     }
+
+    // Sync to local bookmarks
+    if (typeof window !== 'undefined') {
+      try {
+        const localSaved = localStorage.getItem('honbab_local_bookmarks');
+        let currentList: ShortsItem[] = localSaved ? JSON.parse(localSaved) : [];
+        if (currentStatus) {
+          // Remove
+          currentList = currentList.filter((s) => s.id !== id);
+        } else {
+          // Add
+          if (item) {
+            if (!currentList.some((s) => s.id === id)) {
+              currentList.unshift({ ...item, bookmarked: true });
+            }
+          }
+        }
+        localStorage.setItem('honbab_local_bookmarks', JSON.stringify(currentList));
+        window.dispatchEvent(new CustomEvent('bookmark-changed', { detail: { id, bookmarked: !currentStatus } }));
+      } catch {}
+    }
+
+    return !currentStatus;
   }
 };
