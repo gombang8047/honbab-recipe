@@ -1,6 +1,4 @@
-'use client';
-
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { RecipeDetail } from '@/services/recipeApi';
 import { CookingTimer } from './CookingTimer';
 import {
@@ -15,10 +13,13 @@ import {
   Youtube,
   ExternalLink,
   Bookmark,
+  Volume2,
+  ChevronDown,
+  Check,
 } from 'lucide-react';
 import Link from 'next/link';
 import { shortsApi } from '@/services/shortsApi';
-import { soundService } from '@/services/soundService';
+import { soundService, TimerSoundType, TIMER_SOUND_OPTIONS } from '@/services/soundService';
 
 interface RecipeDetailViewProps {
   recipe: RecipeDetail;
@@ -29,6 +30,9 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
   const [checkedIngredients, setCheckedIngredients] = useState<Record<number, boolean>>({});
   const [added, setAdded] = useState(false);
   const [bookmarked, setBookmarked] = useState<boolean>(false);
+  const [soundType, setSoundType] = useState<TimerSoundType>('ovenBell');
+  const [showSoundMenu, setShowSoundMenu] = useState<boolean>(false);
+  const soundMenuRef = useRef<HTMLDivElement>(null);
 
   const targetShortsId = recipe.shortsId || recipe.id;
 
@@ -42,6 +46,11 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
           setBookmarked(list.some((s: any) => s.id === targetShortsId));
         } catch {}
       }
+
+      const savedSound = localStorage.getItem('honbab_timer_sound') as TimerSoundType;
+      if (savedSound) {
+        setSoundType(savedSound);
+      }
     }
 
     const handleBookmarkChanged = (e: CustomEvent) => {
@@ -54,6 +63,30 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
       window.removeEventListener('bookmark-changed', handleBookmarkChanged as EventListener);
     };
   }, [targetShortsId]);
+
+  // 바깥 클릭 시 사운드 메뉴 닫기
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (soundMenuRef.current && !soundMenuRef.current.contains(e.target as Node)) {
+        setShowSoundMenu(false);
+      }
+    };
+    if (showSoundMenu) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showSoundMenu]);
+
+  const handleSelectSound = (type: TimerSoundType) => {
+    setSoundType(type);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('honbab_timer_sound', type);
+    }
+    soundService.playSound(type);
+    setShowSoundMenu(false);
+  };
 
   const handleToggleBookmark = async () => {
     soundService.playButtonClick();
@@ -174,32 +207,32 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
 
             {/* Stats bar */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-              <div className="bg-slate-950/60 p-3 rounded-2xl flex items-center gap-3 border border-slate-800">
-                <Users size={18} className="text-orange-400" />
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-slate-500">기준</span>
-                  <span className="text-xs font-semibold text-slate-200">{recipe.servingSize}인분</span>
+              <div className="bg-slate-950/60 px-3.5 py-3 rounded-2xl flex items-center gap-3 border border-slate-800">
+                <Users size={18} className="text-orange-400 shrink-0" />
+                <div className="flex flex-col justify-center">
+                  <span className="text-[10px] text-slate-500 leading-tight">기준</span>
+                  <span className="text-xs font-semibold text-slate-200 leading-tight mt-0.5">{recipe.servingSize}인분</span>
                 </div>
               </div>
-              <div className="bg-slate-950/60 p-3 rounded-2xl flex items-center gap-3 border border-slate-800">
-                <Clock size={18} className="text-amber-400" />
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-slate-500">조리시간</span>
-                  <span className="text-xs font-semibold text-slate-200">{recipe.cookTimeMinutes}분</span>
+              <div className="bg-slate-950/60 px-3.5 py-3 rounded-2xl flex items-center gap-3 border border-slate-800">
+                <Clock size={18} className="text-amber-400 shrink-0" />
+                <div className="flex flex-col justify-center">
+                  <span className="text-[10px] text-slate-500 leading-tight">조리시간</span>
+                  <span className="text-xs font-semibold text-slate-200 leading-tight mt-0.5">{recipe.cookTimeMinutes}분</span>
                 </div>
               </div>
-              <div className="bg-slate-950/60 p-3 rounded-2xl flex items-center gap-3 border border-slate-800">
-                <DollarSign size={18} className="text-emerald-400" />
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-slate-500">예상 비용</span>
-                  <span className="text-xs font-semibold text-slate-200">{recipe.estimatedCost.toLocaleString()}원</span>
+              <div className="bg-slate-950/60 px-3.5 py-3 rounded-2xl flex items-center gap-3 border border-slate-800">
+                <DollarSign size={18} className="text-emerald-400 shrink-0" />
+                <div className="flex flex-col justify-center">
+                  <span className="text-[10px] text-slate-500 leading-tight">예상 비용</span>
+                  <span className="text-xs font-semibold text-slate-200 leading-tight mt-0.5">{recipe.estimatedCost.toLocaleString()}원</span>
                 </div>
               </div>
-              <div className="bg-slate-950/60 p-3 rounded-2xl flex items-center gap-3 border border-slate-800">
-                <Flame size={18} className="text-red-400" />
-                <div className="flex flex-col">
-                  <span className="text-[10px] text-slate-500">난이도</span>
-                  <span className="text-xs font-semibold text-slate-200">{recipe.difficulty}</span>
+              <div className="bg-slate-950/60 px-3.5 py-3 rounded-2xl flex items-center gap-3 border border-slate-800">
+                <Flame size={18} className="text-red-400 shrink-0" />
+                <div className="flex flex-col justify-center">
+                  <span className="text-[10px] text-slate-500 leading-tight">난이도</span>
+                  <span className="text-xs font-semibold text-slate-200 leading-tight mt-0.5">{recipe.difficulty}</span>
                 </div>
               </div>
             </div>
@@ -233,17 +266,17 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                   <div
                     key={ing.ingredientId}
                     onClick={() => toggleIngredient(ing.ingredientId)}
-                    className={`p-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                    className={`px-4 py-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
                       isChecked
                         ? 'bg-slate-900/40 border-slate-800 text-slate-500 line-through'
                         : 'bg-slate-950/70 border-slate-800/80 text-slate-200 hover:border-orange-500/50'
                     }`}
                   >
                     <div className="flex items-center gap-3">
-                      {isChecked ? <CheckSquare size={16} className="text-slate-600" /> : <Square size={16} className="text-orange-400" />}
-                      <span className="text-sm font-medium">{ing.name}</span>
+                      {isChecked ? <CheckSquare size={16} className="text-slate-600 shrink-0" /> : <Square size={16} className="text-orange-400 shrink-0" />}
+                      <span className="text-sm font-medium leading-normal flex items-center">{ing.name}</span>
                     </div>
-                    <span className="text-xs font-semibold text-slate-400">
+                    <span className="text-xs font-semibold text-slate-400 leading-normal flex items-center">
                       {ing.amount} {ing.unit}
                     </span>
                   </div>
@@ -254,9 +287,61 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
 
           {/* 3. Cooking Steps */}
           <div className="glass-panel p-6 rounded-3xl flex flex-col gap-5 border border-slate-800 bg-slate-900/60 shadow-xl">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <span>👨‍🍳 조리 순서</span>
-            </h2>
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                <span>👨‍🍳 조리 순서</span>
+              </h2>
+
+              {/* Unified Timer Sound Selector at top right */}
+              <div className="relative" ref={soundMenuRef}>
+                <button
+                  onClick={() => setShowSoundMenu((prev) => !prev)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium transition-all shadow-sm"
+                  title="조리 타이머 완료음 설정"
+                >
+                  <Volume2 size={13} className="text-orange-400" />
+                  <span className="text-[11px] text-slate-400 hidden sm:inline">알람음:</span>
+                  <span className="font-semibold text-slate-200">
+                    {TIMER_SOUND_OPTIONS.find((s) => s.id === soundType)?.icon}{' '}
+                    {TIMER_SOUND_OPTIONS.find((s) => s.id === soundType)?.name}
+                  </span>
+                  <ChevronDown
+                    size={12}
+                    className={`text-slate-400 transition-transform ${showSoundMenu ? 'rotate-180 text-orange-400' : ''}`}
+                  />
+                </button>
+
+                {showSoundMenu && (
+                  <div className="absolute right-0 top-full mt-2 w-56 p-2 rounded-2xl bg-slate-900/95 border border-slate-700 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-2.5 py-1 mb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      타이머 완료음 설정
+                    </div>
+                    <div className="space-y-1">
+                      {TIMER_SOUND_OPTIONS.map((option) => (
+                        <button
+                          key={option.id}
+                          onClick={() => handleSelectSound(option.id)}
+                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs transition-all text-left ${
+                            soundType === option.id
+                              ? 'bg-orange-500/20 text-orange-400 font-semibold border border-orange-500/30'
+                              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm">{option.icon}</span>
+                            <span>{option.name}</span>
+                          </div>
+                          {soundType === option.id && <Check size={13} className="text-orange-400" />}
+                        </button>
+                      ))}
+                    </div>
+                    <div className="mt-2 pt-1.5 border-t border-slate-800 px-2 text-[10px] text-slate-400 text-center">
+                      선택 시 알람 소리를 미리 들려드립니다
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
 
             <div className="flex flex-col gap-3.5">
               {recipe.steps.map((step) => {
@@ -270,25 +355,21 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                 return (
                   <div
                     key={step.order}
-                    className={`p-4 sm:p-5 rounded-2xl border transition-all flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center ${
-                      hasTimer
-                        ? 'bg-slate-900/80 border-slate-700/80 shadow-sm'
-                        : 'bg-slate-950/60 border-slate-800/80'
-                    }`}
+                    className="p-4 sm:p-5 rounded-2xl border border-slate-800/80 bg-slate-950/60 transition-all flex flex-col sm:flex-row gap-4 justify-between items-center hover:border-slate-700/80"
                   >
-                    {/* Step order & Text */}
-                    <div className="flex gap-3.5 items-start flex-1 min-w-0">
-                      <span className="w-7 h-7 rounded-full bg-orange-500 text-white font-bold text-xs flex items-center justify-center shrink-0 mt-0.5 shadow">
+                    {/* Step order & Text - Vertically centered in container */}
+                    <div className="flex gap-3.5 items-center flex-1 min-w-0 w-full sm:w-auto">
+                      <span className="w-7 h-7 rounded-full bg-orange-500 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow">
                         {step.order}
                       </span>
-                      <p className="text-slate-200 text-sm leading-relaxed font-medium">
+                      <p className="text-slate-200 text-sm leading-relaxed font-medium flex-1 my-auto">
                         {cleanDescription}
                       </p>
                     </div>
 
                     {/* 0초일 때는 완전히 비워두고, 양수 시간일 때만 타이머 위젯 렌더링 */}
                     {hasTimer ? (
-                      <div className="shrink-0 self-end sm:self-center">
+                      <div className="shrink-0 self-center">
                         <CookingTimer seconds={step.timerSeconds!} stepOrder={step.order} />
                       </div>
                     ) : null}
