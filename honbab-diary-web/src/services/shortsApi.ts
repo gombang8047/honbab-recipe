@@ -70,6 +70,63 @@ export const shortsApi = {
     }
   },
 
+  getTrendingPaginated: async (page = 0, size = 8): Promise<PaginatedShorts> => {
+    try {
+      const res: any = await apiClient.get(`/shorts/trending?page=${page}&size=${size}`);
+      const data = res.data;
+      if (data && Array.isArray(data.content)) {
+        return {
+          items: syncWithLocalBookmarks(data.content),
+          hasMore: !data.last,
+          totalElements: data.totalElements,
+          page: data.number ?? page,
+        };
+      }
+      return {
+        items: [],
+        hasMore: false,
+        totalElements: 0,
+        page: 0,
+      };
+    } catch {
+      return {
+        items: [],
+        hasMore: false,
+        totalElements: 0,
+        page: 0,
+      };
+    }
+  },
+
+  searchPaginated: async (keyword: string, page = 0, size = 8): Promise<PaginatedShorts> => {
+    try {
+      const encoded = encodeURIComponent(keyword);
+      const res: any = await apiClient.get(`/shorts/search?keyword=${encoded}&page=${page}&size=${size}`);
+      const data = res.data;
+      if (data && Array.isArray(data.content)) {
+        return {
+          items: syncWithLocalBookmarks(data.content),
+          hasMore: !data.last,
+          totalElements: data.totalElements,
+          page: data.number ?? page,
+        };
+      }
+      return {
+        items: [],
+        hasMore: false,
+        totalElements: 0,
+        page: 0,
+      };
+    } catch {
+      return {
+        items: [],
+        hasMore: false,
+        totalElements: 0,
+        page: 0,
+      };
+    }
+  },
+
   getFeed: async (page = 0, size = 20): Promise<ShortsItem[]> => {
     try {
       const res: any = await apiClient.get(`/shorts?page=${page}&size=${size}`);
