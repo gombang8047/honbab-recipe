@@ -1,10 +1,24 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { RecipeDetail } from '@/services/recipeApi';
 import { CookingTimer } from './CookingTimer';
-import { ShoppingBag, Users, Clock, Flame, DollarSign, CheckSquare, Square, ChevronLeft, Youtube, ExternalLink } from 'lucide-react';
+import {
+  ShoppingBag,
+  Users,
+  Clock,
+  Flame,
+  DollarSign,
+  CheckSquare,
+  Square,
+  ChevronLeft,
+  Youtube,
+  ExternalLink,
+  Bookmark,
+} from 'lucide-react';
 import Link from 'next/link';
+import { shortsApi } from '@/services/shortsApi';
+import { soundService } from '@/services/soundService';
 
 interface RecipeDetailViewProps {
   recipe: RecipeDetail;
@@ -14,6 +28,49 @@ interface RecipeDetailViewProps {
 export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAddToCart }) => {
   const [checkedIngredients, setCheckedIngredients] = useState<Record<number, boolean>>({});
   const [added, setAdded] = useState(false);
+  const [bookmarked, setBookmarked] = useState<boolean>(false);
+
+  const targetShortsId = recipe.shortsId || recipe.id;
+
+  useEffect(() => {
+    // Check initial bookmark status from local storage
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('honbab_local_bookmarks');
+      if (saved) {
+        try {
+          const list = JSON.parse(saved);
+          setBookmarked(list.some((s: any) => s.id === targetShortsId));
+        } catch {}
+      }
+    }
+
+    const handleBookmarkChanged = (e: CustomEvent) => {
+      if (e.detail && e.detail.id === targetShortsId) {
+        setBookmarked(e.detail.bookmarked);
+      }
+    };
+    window.addEventListener('bookmark-changed', handleBookmarkChanged as EventListener);
+    return () => {
+      window.removeEventListener('bookmark-changed', handleBookmarkChanged as EventListener);
+    };
+  }, [targetShortsId]);
+
+  const handleToggleBookmark = async () => {
+    soundService.playButtonClick();
+    const newStatus = !bookmarked;
+    setBookmarked(newStatus);
+    await shortsApi.toggleBookmark(targetShortsId, bookmarked, {
+      id: targetShortsId,
+      youtubeId: recipe.shortsYoutubeId || `recipe_${recipe.id}`,
+      title: recipe.title,
+      channelName: '혼밥레시피',
+      thumbnailUrl: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=600&q=80',
+      durationSeconds: recipe.cookTimeMinutes * 60,
+      viewCount: 28000,
+      tags: ['1인분', '자취요리'],
+      bookmarked: true,
+    });
+  };
 
   const toggleIngredient = (id: number) => {
     setCheckedIngredients(prev => ({ ...prev, [id]: !prev[id] }));
@@ -34,14 +91,30 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
       </Link>
 
       {/* Header Info */}
-      <div className="glass-panel p-6 rounded-3xl flex flex-col gap-4 border border-orange-500/30">
-        <div className="flex items-center gap-2">
-          <span className="bg-orange-500/20 text-orange-400 text-xs font-semibold px-3 py-1 rounded-full border border-orange-500/40">
-            🤖 AI 변환 완료
-          </span>
-          <span className="bg-slate-800 text-slate-300 text-xs px-3 py-1 rounded-full">
-            난이도: {recipe.difficulty}
-          </span>
+      <div className="glass-panel p-6 rounded-3xl flex flex-col gap-4 border border-orange-500/30 relative">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="bg-orange-500/20 text-orange-400 text-xs font-semibold px-3 py-1 rounded-full border border-orange-500/40">
+              🤖 AI 변환 완료
+            </span>
+            <span className="bg-slate-800 text-slate-300 text-xs px-3 py-1 rounded-full">
+              난이도: {recipe.difficulty}
+            </span>
+          </div>
+
+          {/* Bookmark Button */}
+          <button
+            onClick={handleToggleBookmark}
+            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
+              bookmarked
+                ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow'
+                : 'bg-slate-800/90 text-slate-300 border-slate-700 hover:text-white hover:border-slate-600'
+            }`}
+            title={bookmarked ? '북마크 해제' : '레시피 북마크 저장'}
+          >
+            <Bookmark size={14} fill={bookmarked ? 'currentColor' : 'none'} />
+            <span>{bookmarked ? '저장됨' : '북마크'}</span>
+          </button>
         </div>
 
         <h1 className="text-2xl md:text-3xl font-bold text-white tracking-tight">

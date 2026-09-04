@@ -74,6 +74,14 @@ public class ShortsService {
         bookmarkRepository.deleteByUserIdAndShortsId(userId, shortsId);
     }
 
+    /**
+     * 사용자의 북마크 쇼츠 목록 조회
+     */
+    public Page<ShortsResponse> getBookmarks(Long userId, Pageable pageable) {
+        return bookmarkRepository.findByUserIdOrderByCreatedAtDesc(userId, pageable)
+                .map(b -> ShortsResponse.from(b.getShorts()));
+    }
+
     public Shorts findShortsById(Long id) {
         return shortsRepository.findById(id)
                 .orElseThrow(() -> new BusinessException(ErrorCode.SHORTS_NOT_FOUND));
