@@ -15,6 +15,7 @@ import {
   Sparkles,
 } from 'lucide-react';
 import { cartApi } from '@/services/cartApi';
+import { cartService } from '@/services/cartService';
 import { authApi } from '@/services/authApi';
 import { soundService } from '@/services/soundService';
 
@@ -57,19 +58,23 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
     window.addEventListener('auth-change', handleAuthChange);
     window.addEventListener('storage', handleAuthChange);
 
-    // Fetch Cart
-    cartApi
-      .getCart()
-      .then((cart) => {
-        if (cart && typeof cart.totalItems === 'number') {
-          setCount(cart.totalItems);
-        }
-      })
-      .catch(() => {});
+    // Fetch Cart from cartService
+    setCount(cartService.getCartCount());
+
+    const handleCartChange = (e: any) => {
+      if (typeof e.detail?.count === 'number') {
+        setCount(e.detail.count);
+      } else {
+        setCount(cartService.getCartCount());
+      }
+    };
+
+    window.addEventListener('cart-changed', handleCartChange);
 
     return () => {
       window.removeEventListener('auth-change', handleAuthChange);
       window.removeEventListener('storage', handleAuthChange);
+      window.removeEventListener('cart-changed', handleCartChange);
     };
   }, [syncAuthState]);
 

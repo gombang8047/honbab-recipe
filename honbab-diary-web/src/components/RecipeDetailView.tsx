@@ -20,6 +20,7 @@ import {
 import Link from 'next/link';
 import { shortsApi } from '@/services/shortsApi';
 import { soundService, TimerSoundType, TIMER_SOUND_OPTIONS } from '@/services/soundService';
+import { cartService } from '@/services/cartService';
 
 interface RecipeDetailViewProps {
   recipe: RecipeDetail;
@@ -27,7 +28,14 @@ interface RecipeDetailViewProps {
 }
 
 export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAddToCart }) => {
-  const [checkedIngredients, setCheckedIngredients] = useState<Record<number, boolean>>({});
+  // 기본적으로 모든 재료를 체크(구매 대상) 상태로 초기화
+  const [checkedIngredients, setCheckedIngredients] = useState<Record<number, boolean>>(() => {
+    const initial: Record<number, boolean> = {};
+    recipe.ingredients.forEach((ing) => {
+      initial[ing.ingredientId] = true;
+    });
+    return initial;
+  });
   const [added, setAdded] = useState(false);
   const [bookmarked, setBookmarked] = useState<boolean>(false);
   const [soundType, setSoundType] = useState<TimerSoundType>('ovenBell');
@@ -105,11 +113,33 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
     });
   };
 
+  // 레시피 변경 시 모든 재료 체크 상태 동기화
+  useEffect(() => {
+    const initial: Record<number, boolean> = {};
+    recipe.ingredients.forEach((ing) => {
+      initial[ing.ingredientId] = true;
+    });
+    setCheckedIngredients(initial);
+  }, [recipe]);
+
   const toggleIngredient = (id: number) => {
+    soundService.playButtonClick();
     setCheckedIngredients(prev => ({ ...prev, [id]: !prev[id] }));
   };
 
+  // 현재 선택된(체크된) 재료 개수
+  const selectedCount = recipe.ingredients.filter(ing => checkedIngredients[ing.ingredientId]).length;
+
   const handleAddToCart = () => {
+    const selectedIngredients = recipe.ingredients.filter(ing => checkedIngredients[ing.ingredientId]);
+    if (selectedIngredients.length === 0) return;
+
+    soundService.playButtonClick();
+    cartService.addFromRecipe({
+      id: recipe.id,
+      title: recipe.title,
+      ingredients: selectedIngredients
+    });
     setAdded(true);
     onAddToCart(recipe.id);
     setTimeout(() => setAdded(false), 2000);
@@ -241,23 +271,38 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
           {/* 2. Ingredients & Cart CTA */}
           <div className="glass-panel p-6 rounded-3xl flex flex-col gap-5 border border-slate-800 bg-slate-900/60 shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>🛒 필수 재료 목록</span>
-                <span className="text-xs font-normal text-slate-400">({recipe.ingredients.length}개)</span>
-              </h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-lg font-bold text-white flex items-center gap-2">
+                  <span>🛒 필수 재료 목록</span>
+                  <span className="text-xs font-normal text-slate-400">
+                    ({selectedCount}/{recipe.ingredients.length}개 선택됨)
+                  </span>
+                </h2>
+              </div>
 
               <button
                 onClick={handleAddToCart}
+                disabled={selectedCount === 0}
                 className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition-all ${
-                  added
+                  selectedCount === 0
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                    : added
                     ? 'bg-emerald-500 text-white'
-                    : 'bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:brightness-110'
+                    : 'bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:brightness-110 active:scale-98'
                 }`}
               >
                 <ShoppingBag size={15} />
-                <span>{added ? '장바구니 담기 완료! ✨' : '모든 재료 장바구니 담기'}</span>
+                <span>
+                  {added
+                    ? '장바구니 담기 완료! ✨'
+                    : `선택 재료 장바구니 담기 (${selectedCount}개)`}
+                </span>
               </button>
             </div>
+
+            <p className="text-[11px] text-slate-400">
+              💡 집에 이미 있는 재료는 클릭해서 체크를 해제하면 장바구니에서 제외됩니다.
+            </p>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {recipe.ingredients.map((ing) => {
@@ -266,19 +311,41 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                   <div
                     key={ing.ingredientId}
                     onClick={() => toggleIngredient(ing.ingredientId)}
-                    className={`px-4 py-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
+                    className={`px-4 py-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all duration-200 select-none ${
                       isChecked
-                        ? 'bg-slate-900/40 border-slate-800 text-slate-500 line-through'
-                        : 'bg-slate-950/70 border-slate-800/80 text-slate-200 hover:border-orange-500/50'
+                        ? 'bg-slate-950/80 border-orange-500/40 text-slate-100 shadow-sm hover:border-orange-500/60'
+                        : 'bg-slate-950/20 border-slate-800/40 text-slate-500 opacity-50 hover:opacity-75 hover:bg-slate-950/40'
                     }`}
                   >
-                    <div className="flex items-center gap-3">
-                      {isChecked ? <CheckSquare size={16} className="text-slate-600 shrink-0" /> : <Square size={16} className="text-orange-400 shrink-0" />}
-                      <span className="text-sm font-medium leading-normal flex items-center">{ing.name}</span>
+                    <div className="flex items-center gap-3 min-w-0">
+                      {isChecked ? (
+                        <CheckSquare size={17} className="text-orange-400 shrink-0 transition-transform scale-105" />
+                      ) : (
+                        <Square size={17} className="text-slate-600 shrink-0" />
+                      )}
+                      <span
+                        className={`text-sm font-medium leading-normal flex items-center truncate ${
+                          isChecked ? 'text-slate-100 font-semibold' : 'text-slate-500 line-through'
+                        }`}
+                      >
+                        {ing.name}
+                      </span>
                     </div>
-                    <span className="text-xs font-semibold text-slate-400 leading-normal flex items-center">
-                      {ing.amount} {ing.unit}
-                    </span>
+
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span
+                        className={`text-xs leading-normal font-semibold ${
+                          isChecked ? 'text-orange-400/90' : 'text-slate-600 line-through'
+                        }`}
+                      >
+                        {ing.amount} {ing.unit}
+                      </span>
+                      {!isChecked && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-500 font-medium">
+                          제외
+                        </span>
+                      )}
+                    </div>
                   </div>
                 );
               })}
