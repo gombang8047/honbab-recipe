@@ -113,6 +113,28 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
     router.push(url);
   };
 
+  const [searchValue, setSearchValue] = useState<string>('');
+
+  // Synchronize search input with URL query param if present
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search);
+      const q = urlParams.get('q') || '';
+      setSearchValue(q);
+    }
+  }, [pathname]);
+
+  const handleSearchSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    soundService.playButtonClick();
+    const query = searchValue.trim();
+    if (query) {
+      router.push(`/?q=${encodeURIComponent(query)}`);
+    } else {
+      router.push('/');
+    }
+  };
+
   return (
     <header className="glass-panel sticky top-0 z-50 px-6 py-4 mb-6 mx-4 mt-2 flex items-center justify-between shadow-xl">
       {/* Logo */}
@@ -129,14 +151,33 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
       </Link>
 
       {/* Search Input */}
-      <div className="hidden md:flex items-center gap-2 bg-slate-900/80 border border-slate-700/60 rounded-full px-4 py-2 w-80 text-sm focus-within:border-orange-500 transition-colors">
-        <Search size={16} className="text-slate-400" />
+      <form
+        onSubmit={handleSearchSubmit}
+        className="hidden md:flex items-center gap-2 bg-slate-900/80 border border-slate-700/60 rounded-full px-4 py-2 w-80 text-sm focus-within:border-orange-500 transition-colors shadow-inner"
+      >
+        <Search size={16} className="text-slate-400 shrink-0" />
         <input
           type="text"
-          placeholder="자취 요리, 계란 볶음밥 검색..."
-          className="bg-transparent text-slate-200 placeholder-slate-500 outline-none w-full"
+          value={searchValue}
+          onChange={(e) => setSearchValue(e.target.value)}
+          placeholder="재료(계란, 스팸) or 요리명 검색..."
+          className="bg-transparent text-slate-200 placeholder-slate-500 outline-none w-full text-xs sm:text-sm"
         />
-      </div>
+        {searchValue && (
+          <button
+            type="button"
+            onClick={() => {
+              setSearchValue('');
+              if (pathname === '/') {
+                router.push('/');
+              }
+            }}
+            className="text-xs text-slate-500 hover:text-slate-300 font-bold px-1"
+          >
+            ✕
+          </button>
+        )}
+      </form>
 
       {/* Action Buttons */}
       <div className="flex items-center gap-4">

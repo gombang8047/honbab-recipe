@@ -39,6 +39,21 @@ public class ShortsController {
         return ResponseEntity.ok(ApiResponse.ok(shortsService.getTrending(pageable)));
     }
 
+    @Operation(summary = "랜덤 쇼츠", description = "전체 쇼츠 중 무작위(랜덤)로 조회합니다.")
+    @GetMapping("/random")
+    public ResponseEntity<ApiResponse<Page<ShortsResponse>>> getRandom(
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(shortsService.getRandom(pageable)));
+    }
+
+    @Operation(summary = "쇼츠 검색", description = "제목, 태그, 재료명으로 쇼츠를 검색합니다.")
+    @GetMapping("/search")
+    public ResponseEntity<ApiResponse<Page<ShortsResponse>>> search(
+            @RequestParam(required = false, defaultValue = "") String keyword,
+            @PageableDefault(size = 20) Pageable pageable) {
+        return ResponseEntity.ok(ApiResponse.ok(shortsService.search(keyword, pageable)));
+    }
+
     @Operation(summary = "쇼츠 상세", description = "쇼츠 상세 정보를 조회합니다.")
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<ShortsDetailResponse>> getDetail(

@@ -44,6 +44,25 @@ public class ShortsService {
     }
 
     /**
+     * 무작위(랜덤) 쇼츠 조회
+     */
+    public Page<ShortsResponse> getRandom(Pageable pageable) {
+        return shortsRepository.findRandomShorts(pageable)
+                .map(ShortsResponse::from);
+    }
+
+    /**
+     * 쇼츠 검색 (제목, 채널명, 태그, 레시피 재료명 통합 검색)
+     */
+    public Page<ShortsResponse> search(String keyword, Pageable pageable) {
+        if (keyword == null || keyword.trim().isEmpty()) {
+            return getFeed(pageable);
+        }
+        return shortsRepository.searchShorts(keyword.trim(), pageable)
+                .map(ShortsResponse::from);
+    }
+
+    /**
      * 쇼츠 상세 조회
      */
     public ShortsDetailResponse getDetail(Long shortsId, Long userId) {
