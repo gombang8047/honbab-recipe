@@ -78,13 +78,13 @@ export const CookingTimer: React.FC<CookingTimerProps> = ({ seconds, stepOrder }
   };
 
   return (
-    <div className="flex items-center gap-2.5 bg-slate-900/90 border border-slate-700/80 px-3.5 py-1.5 rounded-full text-xs text-orange-400 font-mono shadow-inner">
-      <Timer size={14} className={isRunning ? 'animate-spin text-orange-400' : 'text-slate-400'} />
-      <span className="font-bold text-sm">{formatTime(timeLeft)}</span>
+    <div className="flex items-center gap-2.5 bg-[#1B4731] border border-[#D4AF37]/40 px-3.5 py-1.5 rounded-full text-xs text-[#D4AF37] font-mono shadow-inner">
+      <Timer size={14} className={isRunning ? 'animate-spin text-[#D4AF37]' : 'text-[#D9D2BE]'} />
+      <span className="font-bold text-sm text-[#FDFBF4]">{formatTime(timeLeft)}</span>
 
       <button
         onClick={toggleTimer}
-        className="p-1 rounded-full bg-orange-500 hover:bg-orange-600 text-white transition-colors"
+        className="p-1 rounded-full bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] transition-colors"
         title={isRunning ? '일시 정지' : '타이머 시작'}
       >
         {isRunning ? <Pause size={12} /> : <Play size={12} className="ml-0.5" />}
@@ -92,7 +92,7 @@ export const CookingTimer: React.FC<CookingTimerProps> = ({ seconds, stepOrder }
 
       <button
         onClick={resetTimer}
-        className="p-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white transition-colors"
+        className="p-1 rounded-full bg-[#133624] hover:bg-[#0D2418] text-[#D9D2BE] hover:text-[#FDFBF4] border border-[#D4AF37]/30 transition-colors"
         title="초기화"
       >
         <RotateCcw size={12} />

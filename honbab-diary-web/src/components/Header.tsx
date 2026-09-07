@@ -13,6 +13,8 @@ import {
   Settings,
   ChevronDown,
   Sparkles,
+  Sun,
+  Moon,
 } from 'lucide-react';
 import { cartApi } from '@/services/cartApi';
 import { cartService } from '@/services/cartService';
@@ -29,9 +31,35 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
   const [count, setCount] = useState<number>(propCartCount ?? 3);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [nickname, setNickname] = useState<string>('카카오 사용자');
+  const [cookingLevel, setCookingLevel] = useState<string>('Lv.3');
   const [mounted, setMounted] = useState<boolean>(false);
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
+  const [theme, setTheme] = useState<'light' | 'dark'>('light');
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    // 초기 테마 로드: 기본값은 'light' (화이트 배경)
+    const stored = localStorage.getItem('honbab_theme');
+    if (stored === 'dark') {
+      setTheme('dark');
+      document.documentElement.classList.add('dark');
+    } else {
+      setTheme('light');
+      document.documentElement.classList.remove('dark');
+    }
+  }, []);
+
+  const toggleTheme = () => {
+    soundService.playButtonClick();
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    localStorage.setItem('honbab_theme', nextTheme);
+    if (nextTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  };
 
   const syncAuthState = useCallback(() => {
     if (typeof window === 'undefined') return;
@@ -45,6 +73,9 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
     } else {
       setNickname('자취 미식가');
     }
+
+    const storedLevel = localStorage.getItem('honbab_user_level') || 'Lv.3';
+    setCookingLevel(storedLevel);
   }, []);
 
   useEffect(() => {
@@ -114,6 +145,7 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
   };
 
   const [searchValue, setSearchValue] = useState<string>('');
+  const [isSearchFocused, setIsSearchFocused] = useState<boolean>(false);
 
   // Synchronize search input with URL query param if present
   useEffect(() => {
@@ -136,43 +168,44 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
   };
 
   return (
-    <header className="glass-panel sticky top-0 z-50 px-6 py-4 mb-6 mx-4 mt-2 flex items-center justify-between shadow-xl">
-      {/* Logo */}
-      <Link href="/" className="flex items-center gap-2 group">
-        <div className="bg-gradient-to-tr from-amber-500 to-orange-500 p-2 rounded-xl text-white shadow-lg group-hover:scale-105 transition-transform">
-          <ChefHat size={24} />
-        </div>
-        <div className="flex flex-col">
-          <span className="font-bold text-xl tracking-tight bg-gradient-to-r from-orange-400 to-amber-300 bg-clip-text text-transparent">
+    <header className="sticky top-0 z-50 w-full transition-colors duration-200 bg-[#133624]/95 backdrop-blur-md border-b border-[#D4AF37]/25 text-[#FDFBF4] shadow-lg">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
+        {/* Logo */}
+        <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group shrink-0">
+          <div className="w-10 h-10 rounded-xl bg-[#1B4731] text-[#D4AF37] border border-[#D4AF37]/50 flex items-center justify-center shadow-md group-hover:scale-105 group-hover:border-[#D4AF37] transition-all">
+            <ChefHat size={22} />
+          </div>
+          <span className="font-extrabold text-xl tracking-tight text-[#FDFBF4] group-hover:text-[#D4AF37] transition-colors">
             혼밥레시피
           </span>
-          <span className="text-[10px] text-slate-400 tracking-wider">AI SHORT RECIPE</span>
-        </div>
-      </Link>
+        </Link>
 
       {/* Search Input */}
       <form
         onSubmit={handleSearchSubmit}
-        className="hidden md:flex items-center gap-2 bg-slate-900/80 border border-slate-700/60 rounded-full px-4 py-2 w-80 text-sm focus-within:border-orange-500 transition-colors shadow-inner"
+        className="hidden md:flex items-center gap-2 h-10 bg-[#0D2418] border border-[#25583E] focus-within:border-[#D4AF37] rounded-full px-4 w-80 text-sm focus-within:ring-1 focus-within:ring-[#D4AF37]/40 transition-all shadow-inner"
       >
-        <Search size={16} className="text-slate-400 shrink-0" />
+        <Search size={16} className="text-[#D4AF37] shrink-0" />
         <input
           type="text"
           value={searchValue}
           onChange={(e) => setSearchValue(e.target.value)}
-          placeholder="재료(계란, 스팸) or 요리명 검색..."
-          className="bg-transparent text-slate-200 placeholder-slate-500 outline-none w-full text-xs sm:text-sm"
+          onFocus={() => setIsSearchFocused(true)}
+          onBlur={() => setIsSearchFocused(false)}
+          placeholder={isSearchFocused ? '재료(계란, 스팸) or 요리명 검색...' : ''}
+          className="bg-transparent text-stone-100 placeholder-[#B8AF98]/80 outline-none w-full text-xs sm:text-sm transition-all"
         />
         {searchValue && (
           <button
             type="button"
+            onMouseDown={(e) => e.preventDefault()}
             onClick={() => {
               setSearchValue('');
               if (pathname === '/') {
                 router.push('/');
               }
             }}
-            className="text-xs text-slate-500 hover:text-slate-300 font-bold px-1"
+            className="text-xs text-[#D4AF37] hover:text-white font-bold px-1"
           >
             ✕
           </button>
@@ -180,16 +213,30 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
       </form>
 
       {/* Action Buttons */}
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-3">
+        {/* Theme Toggle Button (Light / Dark) */}
+        <button
+          onClick={toggleTheme}
+          className="h-10 w-10 flex items-center justify-center rounded-full transition-all shadow-sm border bg-[#1B4731] hover:bg-[#24583E] text-[#D4AF37] border-[#D4AF37]/30 hover:border-[#D4AF37] active:scale-95 shrink-0"
+          title={theme === 'dark' ? '딥 그린 모드로 전환' : '다크 모드로 전환'}
+          aria-label="테마 전환"
+        >
+          {theme === 'dark' ? (
+            <Sun size={18} className="text-[#D4AF37]" />
+          ) : (
+            <Moon size={18} className="text-[#FDFBF4]" />
+          )}
+        </button>
+
         {/* Cart Button */}
         <Link
           href="/cart"
           onClick={() => soundService.playButtonClick()}
-          className="relative p-2.5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white transition-all"
+          className="h-10 w-10 flex items-center justify-center relative rounded-full bg-[#1B4731] hover:bg-[#24583E] text-[#D4AF37] border border-[#D4AF37]/30 hover:border-[#D4AF37] transition-all shadow-sm shrink-0"
         >
-          <ShoppingCart size={20} />
+          <ShoppingCart size={19} />
           {count > 0 && (
-            <span className="absolute -top-1 -right-1 bg-orange-500 text-white font-bold text-[11px] w-5 h-5 rounded-full flex items-center justify-center shadow-md animate-pulse">
+            <span className="absolute -top-1 -right-1 bg-[#D4AF37] text-[#1B4731] font-bold text-[11px] w-5 h-5 rounded-full flex items-center justify-center border border-[#F3E5AB] shadow-sm animate-pulse">
               {count}
             </span>
           )}
@@ -203,22 +250,22 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
                 soundService.playButtonClick();
                 setIsMenuOpen((prev) => !prev);
               }}
-              className={`flex items-center gap-2.5 px-3 py-1.5 rounded-full border transition-all text-xs font-semibold ${
+              className={`h-10 flex items-center gap-2 px-3 sm:px-3.5 rounded-full border transition-all text-xs font-semibold shrink-0 ${
                 isMenuOpen
-                  ? 'bg-amber-500/20 border-amber-400 text-amber-300 ring-2 ring-amber-400/30'
-                  : 'bg-slate-800/90 border-slate-700 hover:border-amber-500/50 text-slate-200 hover:text-white'
+                  ? 'bg-[#1B4731] border-[#D4AF37] text-[#D4AF37]'
+                  : 'bg-[#1B4731] border-[#D4AF37]/40 text-[#FDFBF4] hover:border-[#D4AF37]'
               }`}
             >
-              <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-amber-500 to-orange-500 flex items-center justify-center text-white text-xs font-bold shadow">
-                {nickname.charAt(0) || '혼'}
-              </div>
-              <span className="max-w-[100px] truncate hidden sm:inline-block font-medium">
+              <span className="px-1.5 py-0.5 rounded-md text-[10px] font-extrabold bg-[#D4AF37] text-[#1B4731] shadow-sm tracking-tight">
+                {cookingLevel}
+              </span>
+              <span className="max-w-[100px] truncate font-medium">
                 {nickname}
               </span>
               <ChevronDown
                 size={14}
-                className={`text-slate-400 transition-transform duration-200 ${
-                  isMenuOpen ? 'rotate-180 text-amber-400' : ''
+                className={`text-[#D4AF37] transition-transform duration-200 ${
+                  isMenuOpen ? 'rotate-180' : ''
                 }`}
               />
             </button>
@@ -228,10 +275,9 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
                 soundService.playButtonClick();
                 setIsMenuOpen((prev) => !prev);
               }}
-              className="flex items-center gap-2 bg-gradient-to-r from-yellow-400 to-amber-500 text-slate-900 font-semibold px-4 py-2 rounded-full text-sm hover:brightness-110 shadow-lg transition-all"
+              className="h-10 flex items-center gap-2 bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] font-bold px-4 rounded-full text-xs sm:text-sm border border-[#F3E5AB] shadow-md transition-all active:scale-95 shrink-0"
             >
-              <User size={16} />
-              <span>프로필 / 로그인</span>
+              <span>로그인</span>
               <ChevronDown
                 size={14}
                 className={`transition-transform duration-200 ${
@@ -241,23 +287,25 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
             </button>
           )}
 
-          {/* Glassmorphic Dropdown Popover */}
+          {/* Dropdown Popover */}
           {isMenuOpen && (
-            <div className="absolute right-0 mt-2.5 w-64 rounded-2xl bg-slate-900/95 border border-slate-700/80 shadow-2xl backdrop-blur-xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-150">
+            <div className="absolute right-0 mt-2.5 w-64 rounded-2xl bg-[#133624] border border-[#D4AF37]/50 shadow-2xl backdrop-blur-xl p-2.5 z-50 animate-in fade-in zoom-in-95 duration-150 text-[#FDFBF4]">
               {/* Profile Card Header in Dropdown */}
-              <div className="px-3 py-2.5 mb-1 bg-slate-800/60 rounded-xl border border-slate-700/50 flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-gradient-to-tr from-orange-500 to-amber-400 flex items-center justify-center text-white font-bold text-sm shadow-md">
-                  {mounted && isLoggedIn ? nickname.charAt(0) : <User size={18} />}
-                </div>
-                <div className="flex flex-col min-w-0 flex-1">
-                  <span className="text-sm font-semibold text-white truncate">
+              <div className="px-3.5 py-2.5 mb-1 bg-[#1B4731] border border-[#D4AF37]/40 rounded-xl flex items-center justify-between">
+                <div className="flex flex-col min-w-0">
+                  <span className="text-sm font-semibold text-[#FDFBF4] truncate">
                     {mounted && isLoggedIn ? nickname : '게스트 사용자'}
                   </span>
-                  <span className="text-[11px] text-amber-400 flex items-center gap-1 font-medium">
-                    <Sparkles size={11} />
-                    {mounted && isLoggedIn ? 'Lv.3 자취 마스터' : '로그인이 필요합니다'}
+                  <span className="text-[11px] text-[#D4AF37] flex items-center gap-1 font-medium mt-0.5">
+                    <Sparkles size={11} className="text-[#D4AF37]" />
+                    <span>{mounted && isLoggedIn ? '자취 요리사' : '로그인이 필요합니다'}</span>
                   </span>
                 </div>
+                {mounted && isLoggedIn && (
+                  <span className="px-2 py-0.5 rounded-md text-xs font-bold bg-[#D4AF37] text-[#1B4731] shadow-sm">
+                    {cookingLevel}
+                  </span>
+                )}
               </div>
 
               {/* Menu Links */}
@@ -267,16 +315,16 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
                   onClick={() => handleMenuClick('/mypage')}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left ${
                     pathname === '/mypage'
-                      ? 'bg-orange-500/20 text-orange-400 font-semibold'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#1B4731] text-[#D4AF37] font-bold border border-[#D4AF37]/60'
+                      : 'text-stone-200 hover:bg-[#1B4731] hover:text-[#FDFBF4]'
                   }`}
                 >
-                  <div className="p-1.5 rounded-lg bg-orange-500/10 text-orange-400">
+                  <div className="p-1.5 rounded-lg bg-[#0D2418] text-[#D4AF37]">
                     <User size={16} />
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-semibold text-slate-100">마이페이지</span>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="font-semibold text-[#FDFBF4]">마이페이지</span>
+                    <span className="text-[10px] text-[#D9D2BE]">
                       내 혼밥 통계 및 식재료 관리
                     </span>
                   </div>
@@ -287,16 +335,16 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
                   onClick={() => handleMenuClick('/bookmarks')}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left ${
                     pathname === '/bookmarks'
-                      ? 'bg-amber-500/20 text-amber-400 font-semibold'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#1B4731] text-[#D4AF37] font-bold border border-[#D4AF37]/60'
+                      : 'text-stone-200 hover:bg-[#1B4731] hover:text-[#FDFBF4]'
                   }`}
                 >
-                  <div className="p-1.5 rounded-lg bg-amber-500/10 text-amber-400">
+                  <div className="p-1.5 rounded-lg bg-[#0D2418] text-[#D4AF37]">
                     <Bookmark size={16} />
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-semibold text-slate-100">북마크</span>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="font-semibold text-[#FDFBF4]">북마크</span>
+                    <span className="text-[10px] text-[#D9D2BE]">
                       찜한 1인분 레시피 보관함
                     </span>
                   </div>
@@ -307,16 +355,16 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
                   onClick={() => handleMenuClick('/settings')}
                   className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left ${
                     pathname === '/settings'
-                      ? 'bg-cyan-500/20 text-cyan-400 font-semibold'
-                      : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                      ? 'bg-[#1B4731] text-[#D4AF37] font-bold border border-[#D4AF37]/60'
+                      : 'text-stone-200 hover:bg-[#1B4731] hover:text-[#FDFBF4]'
                   }`}
                 >
-                  <div className="p-1.5 rounded-lg bg-cyan-500/10 text-cyan-400">
+                  <div className="p-1.5 rounded-lg bg-[#0D2418] text-[#D4AF37]">
                     <Settings size={16} />
                   </div>
                   <div className="flex flex-col">
-                    <span className="font-semibold text-slate-100">설정</span>
-                    <span className="text-[10px] text-slate-400">
+                    <span className="font-semibold text-[#FDFBF4]">설정</span>
+                    <span className="text-[10px] text-[#D9D2BE]">
                       알림 및 사운드 효과음
                     </span>
                   </div>
@@ -324,11 +372,11 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
               </div>
 
               {/* Divider & Auth button */}
-              <div className="border-t border-slate-800 pt-1.5 mt-1.5">
+              <div className="border-t border-[#D4AF37]/30 pt-1.5 mt-1.5">
                 {mounted && isLoggedIn ? (
                   <button
                     onClick={handleLogout}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-red-400 hover:bg-red-500/10 hover:text-red-300 transition-colors"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium text-rose-300 hover:bg-rose-500/10 hover:text-rose-200 transition-colors"
                   >
                     <LogOut size={15} />
                     <span>로그아웃</span>
@@ -336,7 +384,7 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
                 ) : (
                   <button
                     onClick={() => handleMenuClick('/login')}
-                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold bg-gradient-to-r from-amber-500 to-orange-500 text-white hover:brightness-110 transition-all shadow"
+                    className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-bold bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] border border-[#F3E5AB] transition-all shadow-md active:scale-95"
                   >
                     <User size={15} />
                     <span>카카오 간편 로그인</span>
@@ -347,6 +395,7 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
           )}
         </div>
       </div>
-    </header>
+    </div>
+  </header>
   );
 };
