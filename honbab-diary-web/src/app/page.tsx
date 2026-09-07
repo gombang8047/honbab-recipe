@@ -7,7 +7,7 @@ import { ShortsCard } from '@/components/ShortsCard';
 import { ShortsPlayerModal } from '@/components/ShortsPlayerModal';
 import { AiConversionModal } from '@/components/AiConversionModal';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { Sparkles, TrendingUp, Filter, Loader2, Search, X, Utensils, RotateCw, Flame, Clock, ChevronDown } from 'lucide-react';
+import { Sparkles, TrendingUp, Filter, Loader2, Search, X, Utensils, RotateCw, Flame, Clock, ChevronDown, Shuffle, ShoppingCart, Check } from 'lucide-react';
 
 const PAGE_SIZE = 8;
 
@@ -179,36 +179,113 @@ export default function HomePage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-8">
-      {/* Hero Banner */}
-      <div className="relative rounded-3xl overflow-hidden bg-gradient-to-r from-orange-600 via-amber-600 to-orange-500 p-8 md:p-12 text-white shadow-2xl flex flex-col gap-4">
-        <div className="flex items-center gap-2 bg-white/20 backdrop-blur-md px-3 py-1 rounded-full w-fit text-xs font-semibold text-amber-100 border border-white/30">
-          <Sparkles size={14} />
-          <span>AI 레시피 자동 변환 엔진 적용</span>
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8">
+      {/* Hero Banner: Luxury Editorial 60-30-10 Layout */}
+      <div className="relative rounded-3xl p-6 sm:p-8 lg:p-10 text-[#FDFBF4] shadow-2xl border bg-[#133624] border-[#D4AF37]/40 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          {/* Left Column (Main Story) */}
+          <div className="lg:col-span-7 flex flex-col gap-4">
+            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full w-fit text-xs font-bold bg-[#1B4731] text-[#D4AF37] border border-[#D4AF37]/40 tracking-wider shadow-sm">
+              <Sparkles size={13} className="text-[#D4AF37]" />
+              <span>AI 1인분 요리 연구소 • CUISINE STUDIO</span>
+            </div>
+
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.2] text-[#FDFBF4]">
+              쇼츠 보고 3분 만에,<br />
+              <span className="text-[#D4AF37]">근사한 1인분 식탁</span>을 완성하세요
+            </h1>
+
+            <p className="text-[#E7E2D3] text-sm sm:text-base max-w-xl leading-relaxed">
+              유튜브 60초 요리 영상에서 AI가 1인분 분량과 조리 순서를 즉시 추출합니다. 필요한 식재료는 쿠팡과 마켓컬리 최저가로 한눈에 비교해 보세요.
+            </p>
+
+            {/* Feature Pills */}
+            <div className="flex flex-wrap gap-2 pt-2">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1B4731] text-xs text-[#FDFBF4] border border-[#D4AF37]/30 shadow-sm font-medium">
+                <Clock size={12} className="text-[#D4AF37]" />
+                <span>3분 쇼츠 요약</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1B4731] text-xs text-[#FDFBF4] border border-[#D4AF37]/30 shadow-sm font-medium">
+                <Utensils size={12} className="text-[#D4AF37]" />
+                <span>1인분 계량 최적화</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1B4731] text-xs text-[#FDFBF4] border border-[#D4AF37]/30 shadow-sm font-medium">
+                <ShoppingCart size={12} className="text-[#D4AF37]" />
+                <span>쿠팡 • 컬리 최저가 비교</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Right Column: Spotlight Showcase Card (Sub Color: Cream White #FDFBF4 - 30%) */}
+          <div className="lg:col-span-5">
+            <div className="bg-[#FDFBF4] rounded-2xl p-5 sm:p-6 border border-[#D4AF37]/50 shadow-2xl flex flex-col gap-4 text-[#1B4731]">
+              <div className="flex items-center justify-between border-b border-[#D4AF37]/25 pb-3">
+                <div className="flex items-center gap-2 text-xs font-bold text-[#1B4731]">
+                  <span className="w-2 h-2 rounded-full bg-[#D4AF37]" />
+                  <span>오늘의 자취 추천 쇼츠</span>
+                </div>
+                <span className="text-[10px] font-extrabold text-[#8C762E] bg-[#D4AF37]/20 px-2.5 py-0.5 rounded-full border border-[#D4AF37]/30">
+                  인기 1위
+                </span>
+              </div>
+
+              <div className="flex flex-col gap-1.5">
+                <h3 className="font-extrabold text-base sm:text-lg text-[#1B4731] leading-snug">
+                  원팬 마늘 오일 파스타
+                </h3>
+                <p className="text-xs text-[#486353] leading-relaxed">
+                  설거지 단 1개! 쇼츠 영상에서 추출한 1인분 맞춤 8분 완성 레시피
+                </p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="bg-[#F2ECE1] rounded-xl p-2.5 flex flex-col gap-0.5">
+                  <span className="text-[10px] text-[#697D71] font-medium">1인분 예상 원가</span>
+                  <span className="font-extrabold text-[#1B4731] text-sm">약 2,850원</span>
+                </div>
+                <div className="bg-[#F2ECE1] rounded-xl p-2.5 flex flex-col gap-0.5">
+                  <span className="text-[10px] text-[#697D71] font-medium">조리 소요 시간</span>
+                  <span className="font-extrabold text-[#1B4731] text-sm">8분 초간단</span>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-1 border-t border-[#D4AF37]/20 text-xs">
+                <div className="flex gap-1.5">
+                  <span className="text-[10px] font-semibold bg-[#1B4731]/10 text-[#1B4731] px-2 py-0.5 rounded-md">
+                    #원팬요리
+                  </span>
+                  <span className="text-[10px] font-semibold bg-[#1B4731]/10 text-[#1B4731] px-2 py-0.5 rounded-md">
+                    #초간단
+                  </span>
+                </div>
+                <button
+                  onClick={() => router.push('/?q=' + encodeURIComponent('파스타'))}
+                  className="text-xs font-bold text-[#1B4731] hover:text-[#2E6B4B] flex items-center gap-1 group"
+                >
+                  <span>레시피 모아보기</span>
+                  <span className="group-hover:translate-x-0.5 transition-transform">→</span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
-        <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight leading-tight">
-          쇼츠 보고 3분만에<br />1인분 레시피 완성 🍳
-        </h1>
-        <p className="text-orange-100 text-sm md:text-base max-w-xl">
-          유튜브 60초 요리 영상에서 재료 목록과 조리 순서를 AI가 추출해드립니다. 필요한 재료는 쿠팡/컬리 단위 환산 가격으로 한 번에 비교!
-        </p>
       </div>
 
       {/* Search Result Banner / Status Header */}
       {searchQuery && (
-        <div className="bg-slate-900/80 border border-slate-800 p-4 rounded-2xl flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-sm text-slate-200">
-            <Search size={17} className="text-orange-400 shrink-0" />
+        <div className="border p-4 rounded-2xl flex items-center justify-between gap-4 transition-colors bg-[#133624] border-[#D4AF37]/40 shadow-xl">
+          <div className="flex items-center gap-2 text-sm text-stone-100">
+            <Search size={17} className="text-[#D4AF37] shrink-0" />
             <span>
-              <strong className="text-orange-400 font-bold">"{searchQuery}"</strong> (재료 및 요리명) 검색 결과
+              <strong className="font-bold text-[#D4AF37]">"{searchQuery}"</strong> (재료 및 요리명) 검색 결과
             </span>
-            <span className="text-xs text-slate-400 font-medium">
+            <span className="text-xs text-[#E7E2D3] font-medium">
               ({shortsList.length}건{hasMore ? '+' : ''})
             </span>
           </div>
           <button
             onClick={clearSearch}
-            className="px-3 py-1 text-xs rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 transition-colors font-semibold flex items-center gap-1"
+            className="px-3.5 py-1.5 text-xs rounded-xl transition-colors font-bold flex items-center gap-1 shadow-md bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] border border-[#F3E5AB]"
           >
             <span>전체 목록 보기</span>
           </button>
@@ -216,12 +293,12 @@ export default function HomePage() {
       )}
 
       {/* Feed Control Bar: Sort Options & Refresh Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-800/80">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#D4AF37]/30 transition-colors">
         {/* Left side: Section Title / Info */}
         <div className="flex items-center gap-2">
-          <Sparkles size={16} className="text-orange-400" />
-          <span className="text-sm font-bold text-white tracking-tight">요리 쇼츠 레시피</span>
-          <span className="text-xs text-slate-500 font-medium hidden sm:inline">
+          <Sparkles size={16} className="text-[#D4AF37]" />
+          <span className="text-sm font-bold text-[#FDFBF4] tracking-tight">요리 쇼츠 레시피</span>
+          <span className="text-xs text-[#E7E2D3] font-medium hidden sm:inline">
             • 클릭 시 AI 레시피 및 재료 보기
           </span>
         </div>
@@ -229,17 +306,17 @@ export default function HomePage() {
         {/* Right side: Sort Controls & Refresh Button */}
         <div className="flex items-center gap-2.5 self-end sm:self-auto flex-wrap">
           {/* Sort Switcher (추천순 / 인기순 / 최신순) */}
-          <div className="flex items-center bg-slate-900/90 border border-slate-800 p-1 rounded-2xl shadow-inner">
+          <div className="flex items-center bg-[#133624] border border-[#D4AF37]/40 p-1 rounded-2xl shadow-md">
             <button
               onClick={() => setSortMode('RANDOM')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 sortMode === 'RANDOM'
-                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/20'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-[#D4AF37] text-[#1B4731] border border-[#F3E5AB] shadow-md'
+                  : 'text-[#E7E2D3] hover:text-[#D4AF37]'
               }`}
               title="새로고침 시마다 랜덤 추천"
             >
-              <span>🎲</span>
+              <Shuffle size={12} className={sortMode === 'RANDOM' ? 'text-[#1B4731]' : 'text-[#D4AF37]'} />
               <span>추천순</span>
             </button>
 
@@ -247,12 +324,12 @@ export default function HomePage() {
               onClick={() => setSortMode('TRENDING')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 sortMode === 'TRENDING'
-                  ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-md shadow-amber-500/20'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-[#D4AF37] text-[#1B4731] border border-[#F3E5AB] shadow-md'
+                  : 'text-[#E7E2D3] hover:text-[#D4AF37]'
               }`}
               title="유튜브 조회수 기준 정렬"
             >
-              <Flame size={12} className={sortMode === 'TRENDING' ? 'text-white' : 'text-amber-400'} />
+              <Flame size={12} className={sortMode === 'TRENDING' ? 'text-[#1B4731]' : 'text-[#D4AF37]'} />
               <span>인기순</span>
             </button>
 
@@ -260,12 +337,12 @@ export default function HomePage() {
               onClick={() => setSortMode('LATEST')}
               className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                 sortMode === 'LATEST'
-                  ? 'bg-slate-700 text-white shadow-md'
-                  : 'text-slate-400 hover:text-slate-200'
+                  ? 'bg-[#D4AF37] text-[#1B4731] border border-[#F3E5AB] shadow-md'
+                  : 'text-[#E7E2D3] hover:text-[#D4AF37]'
               }`}
               title="최근 등록일 기준 정렬"
             >
-              <Clock size={12} />
+              <Clock size={12} className={sortMode === 'LATEST' ? 'text-[#1B4731]' : 'text-[#D4AF37]'} />
               <span>최신순</span>
             </button>
           </div>
@@ -274,14 +351,14 @@ export default function HomePage() {
           <button
             onClick={handleRefresh}
             disabled={initialLoading || isRefreshing}
-            className={`px-3.5 py-2 rounded-2xl border border-slate-700/80 bg-slate-900/90 hover:bg-slate-800 text-slate-200 hover:text-white text-xs font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95 ${
+            className={`px-3.5 py-2 rounded-2xl border transition-all text-xs font-bold flex items-center gap-1.5 shadow-md active:scale-95 bg-[#133624] border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#1B4731] ${
               isRefreshing ? 'opacity-70 cursor-not-allowed' : ''
             }`}
             title="새로운 요리 쇼츠 불러오기"
           >
             <RotateCw
               size={13}
-              className={`text-orange-400 ${isRefreshing ? 'animate-spin' : 'hover:rotate-180 transition-transform duration-500'}`}
+              className={`text-[#D4AF37] ${isRefreshing ? 'animate-spin' : 'hover:rotate-180 transition-transform duration-500'}`}
             />
             <span>{isRefreshing ? '갱신 중...' : '새로고침'}</span>
           </button>
@@ -292,26 +369,26 @@ export default function HomePage() {
       {initialLoading ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {Array.from({ length: gridCols * 2 }).map((_, n) => (
-            <div key={n} className="bg-slate-900 rounded-2xl aspect-[9/16] animate-pulse border border-slate-800" />
+            <div key={n} className="bg-[#133624]/60 border border-[#D4AF37]/20 rounded-2xl aspect-[9/16] animate-pulse" />
           ))}
         </div>
       ) : shortsList.length === 0 ? (
-        <div className="text-center py-16 px-4 bg-slate-900/40 rounded-3xl border border-slate-800/80 flex flex-col items-center justify-center gap-4">
-          <div className="p-4 bg-slate-800/60 rounded-full text-slate-400">
-            <Utensils size={36} className="text-orange-400" />
+        <div className="text-center py-16 px-4 rounded-3xl border flex flex-col items-center justify-center gap-4 bg-[#133624] border-[#D4AF37]/40 text-[#FDFBF4] shadow-2xl">
+          <div className="p-4 rounded-full bg-[#1B4731] text-[#D4AF37] border border-[#D4AF37]/40 shadow-inner">
+            <Utensils size={36} />
           </div>
           <div className="flex flex-col gap-1">
-            <h3 className="text-lg font-bold text-white">
+            <h3 className="text-lg font-bold text-[#FDFBF4]">
               {searchQuery ? `"${searchQuery}"에 해당하는 요리 쇼츠를 찾지 못했습니다.` : '등록된 쇼츠가 없습니다.'}
             </h3>
-            <p className="text-xs text-slate-400">
+            <p className="text-xs text-[#E7E2D3]">
               다른 재료명(예: 계란, 스팸, 김치, 라면)이나 요리 이름으로 검색해 보세요!
             </p>
           </div>
           {searchQuery && (
             <button
               onClick={clearSearch}
-              className="mt-2 px-4 py-2 rounded-xl bg-orange-500 hover:bg-orange-600 text-white text-xs font-bold transition-all shadow-md"
+              className="mt-2 px-4 py-2 rounded-xl text-[#1B4731] text-xs font-bold transition-all shadow-md bg-[#D4AF37] hover:bg-[#C49F2C] border border-[#F3E5AB]"
             >
               전체 쇼츠 보기
             </button>
@@ -333,15 +410,16 @@ export default function HomePage() {
           {/* Infinite Scroll Trigger Observer Target */}
           <div ref={observerTarget} className="w-full py-8 flex flex-col items-center justify-center min-h-[80px]">
             {loadingMore && (
-              <div className="flex items-center gap-2 text-orange-400 text-sm font-semibold bg-slate-900/80 border border-orange-500/30 px-5 py-2.5 rounded-full shadow-lg backdrop-blur-md">
-                <Loader2 size={18} className="animate-spin" />
+              <div className="flex items-center gap-2 text-sm font-semibold px-5 py-2.5 rounded-full shadow-2xl border bg-[#133624] border-[#D4AF37]/40 text-[#D4AF37] backdrop-blur-md">
+                <Loader2 size={18} className="animate-spin text-[#D4AF37]" />
                 <span>새로운 요리 쇼츠를 불러오는 중...</span>
               </div>
             )}
 
             {!hasMore && shortsList.length > 0 && (
-              <div className="text-xs text-slate-500 font-medium py-4">
-                🎉 모든 요리 쇼츠를 다 불러왔습니다!
+              <div className="text-xs text-[#D9D2BE] font-semibold py-4 flex items-center justify-center gap-1.5">
+                <Check size={14} className="text-[#D4AF37]" />
+                <span>모든 요리 쇼츠를 다 불러왔습니다</span>
               </div>
             )}
           </div>

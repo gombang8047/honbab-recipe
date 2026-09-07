@@ -28,8 +28,8 @@ export default function RecipePage() {
   if (loading || !recipe) {
     return (
       <div className="max-w-4xl mx-auto p-8 text-center flex flex-col items-center justify-center min-h-[60vh] gap-4">
-        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-slate-400 text-sm">레시피를 불러오는 중입니다...</p>
+        <div className="w-12 h-12 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+        <p className="text-[#D9D2BE] text-sm font-medium">레시피를 불러오는 중입니다...</p>
       </div>
     );
   }

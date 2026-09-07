@@ -74,11 +74,11 @@ export const ShortsPlayerModal: React.FC<ShortsPlayerModalProps> = ({
       />
 
       {/* Modal Container */}
-      <div className="relative z-10 w-full max-w-4xl bg-slate-900 border border-slate-700/80 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh]">
+      <div className="relative z-10 w-full max-w-4xl bg-[#133624] border border-[#D4AF37]/50 rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row max-h-[90vh]">
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-20 p-2 rounded-full bg-black/60 hover:bg-black/90 text-slate-300 hover:text-white transition-all"
+          className="absolute top-4 right-4 z-20 p-2 rounded-full bg-black/60 hover:bg-black/90 text-stone-300 hover:text-white transition-all border border-white/10"
         >
           <X size={20} />
         </button>
@@ -95,11 +95,11 @@ export const ShortsPlayerModal: React.FC<ShortsPlayerModalProps> = ({
         </div>
 
         {/* Video Info & Actions Sidebar */}
-        <div className="flex-1 p-6 md:p-8 flex flex-col justify-between gap-6 overflow-y-auto bg-gradient-to-b from-slate-900 to-slate-950">
+        <div className="flex-1 p-6 md:p-8 flex flex-col justify-between gap-6 overflow-y-auto bg-[#133624]">
           <div className="flex flex-col gap-4">
             {/* Channel info & Bookmark button */}
             <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs text-orange-400 font-semibold tracking-wide">
+              <div className="flex items-center gap-2 text-xs text-[#D4AF37] font-semibold tracking-wide">
                 <Youtube size={16} />
                 <span>{shorts.channelName}</span>
               </div>
@@ -107,8 +107,8 @@ export const ShortsPlayerModal: React.FC<ShortsPlayerModalProps> = ({
                 onClick={handleToggleBookmark}
                 className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
                   bookmarked
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
-                    : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white hover:border-slate-600'
+                    ? 'bg-[#D4AF37] text-[#1B4731] border-[#F3E5AB] shadow-md'
+                    : 'bg-[#1B4731] text-[#E7E2D3] border-[#D4AF37]/30 hover:border-[#D4AF37] hover:text-[#FDFBF4]'
                 }`}
               >
                 <Bookmark size={14} fill={bookmarked ? 'currentColor' : 'none'} />
@@ -117,18 +117,18 @@ export const ShortsPlayerModal: React.FC<ShortsPlayerModalProps> = ({
             </div>
 
             {/* Video Title */}
-            <h2 className="text-xl md:text-2xl font-bold text-white leading-snug">
+            <h2 className="text-xl md:text-2xl font-bold text-[#FDFBF4] leading-snug">
               {shorts.title}
             </h2>
 
             {/* Stats badges */}
-            <div className="flex items-center gap-4 text-xs text-slate-400 pt-1 border-b border-slate-800 pb-4">
+            <div className="flex items-center gap-4 text-xs text-[#E7E2D3] pt-1 border-b border-[#D4AF37]/30 pb-4">
               <div className="flex items-center gap-1.5">
-                <Eye size={14} className="text-slate-500" />
+                <Eye size={14} className="text-[#D4AF37]" />
                 <span>{(shorts.viewCount / 10000).toFixed(1)}만회</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <Clock size={14} className="text-slate-500" />
+                <Clock size={14} className="text-[#D4AF37]" />
                 <span>{shorts.durationSeconds}초</span>
               </div>
             </div>
@@ -136,12 +136,12 @@ export const ShortsPlayerModal: React.FC<ShortsPlayerModalProps> = ({
             {/* Tags */}
             {shorts.tags && shorts.tags.length > 0 && (
               <div className="flex flex-col gap-2">
-                <span className="text-xs font-semibold text-slate-400">관련 태그</span>
+                <span className="text-xs font-semibold text-[#D4AF37]">관련 태그</span>
                 <div className="flex flex-wrap gap-1.5">
                   {shorts.tags.map((tag, idx) => (
                     <span
                       key={idx}
-                      className="bg-orange-500/10 text-orange-300 text-xs px-2.5 py-1 rounded-lg border border-orange-500/20"
+                      className="bg-[#1B4731] text-[#D4AF37] text-xs px-2.5 py-1 rounded-lg border border-[#D4AF37]/40 font-semibold shadow-sm"
                     >
                       #{tag}
                     </span>
@@ -152,17 +152,17 @@ export const ShortsPlayerModal: React.FC<ShortsPlayerModalProps> = ({
           </div>
 
           {/* Action buttons */}
-          <div className="flex flex-col gap-3 pt-4 border-t border-slate-800">
+          <div className="flex flex-col gap-3 pt-4 border-t border-[#D4AF37]/30">
             {onConvertAi && (
               <button
                 onClick={() => {
                   onClose();
                   onConvertAi(shorts);
                 }}
-                className="w-full bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 text-white font-bold py-3.5 px-5 rounded-2xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-orange-500/30 active:scale-98 transition-all"
+                className="w-full bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] font-extrabold py-3.5 px-5 rounded-2xl text-sm flex items-center justify-center gap-2 shadow-xl border border-[#F3E5AB] active:scale-98 transition-all"
               >
-                <Sparkles size={18} />
-                <span>이 쇼츠로 AI 레시피 추출하기 🍳</span>
+                <Sparkles size={18} className="text-[#1B4731]" />
+                <span>이 쇼츠로 AI 레시피 추출하기</span>
               </button>
             )}
 
@@ -170,9 +170,9 @@ export const ShortsPlayerModal: React.FC<ShortsPlayerModalProps> = ({
               href={`https://www.youtube.com/shorts/${shorts.youtubeId}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="w-full bg-slate-800/80 hover:bg-slate-800 text-slate-300 hover:text-white font-semibold py-3 px-5 rounded-2xl text-xs flex items-center justify-center gap-2 border border-slate-700 transition-all"
+              className="w-full bg-[#1B4731] hover:bg-[#255e42] text-[#FDFBF4] hover:text-white font-semibold py-3 px-5 rounded-2xl text-xs flex items-center justify-center gap-2 border border-[#D4AF37]/30 transition-all"
             >
-              <ExternalLink size={14} />
+              <ExternalLink size={14} className="text-[#D4AF37]" />
               <span>YouTube에서 직접 보기</span>
             </a>
           </div>

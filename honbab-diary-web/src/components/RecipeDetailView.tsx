@@ -9,15 +9,17 @@ import {
   DollarSign,
   CheckSquare,
   Square,
-  ChevronLeft,
   Youtube,
   ExternalLink,
   Bookmark,
   Volume2,
   ChevronDown,
   Check,
+  Sparkles,
+  ChefHat,
+  ShoppingCart,
+  Info,
 } from 'lucide-react';
-import Link from 'next/link';
 import { shortsApi } from '@/services/shortsApi';
 import { soundService, TimerSoundType, TIMER_SOUND_OPTIONS } from '@/services/soundService';
 import { cartService } from '@/services/cartService';
@@ -146,69 +148,63 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-6 flex flex-col gap-6">
-      {/* Back button */}
-      <Link href="/" className="inline-flex items-center gap-1 text-slate-400 hover:text-white text-sm transition-colors w-fit">
-        <ChevronLeft size={18} />
-        <span>쇼츠 피드로 돌아가기</span>
-      </Link>
-
-      {/* Main Split Layout: Left Video + Right Recipe */}
-      <div className={`flex flex-col ${recipe.shortsYoutubeId ? 'lg:grid lg:grid-cols-12 gap-8' : 'gap-8'}`}>
+    <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 sm:py-5 lg:h-[calc(100vh-5rem)] lg:overflow-hidden flex flex-col">
+      {/* Main Split Layout: Left Video (Fixed stationary) + Right Recipe (Independent scroll) */}
+      <div className={`flex flex-col ${recipe.shortsYoutubeId ? 'lg:grid lg:grid-cols-12 gap-8 lg:h-full lg:min-h-0' : 'max-w-4xl mx-auto w-full'}`}>
         {/* =========================================================================
-            좌측: 쇼츠 영상 플레이어 (PC에서는 스크롤 시 화면에 계속 고정 Sticky)
+            좌측: 쇼츠 영상 플레이어 (PC에서는 전체 화면 높이에 맞춰 고정되어 움직이지 않음)
            ========================================================================= */}
         {recipe.shortsYoutubeId && (
-          <div className="lg:col-span-5 xl:col-span-4 h-full relative">
-            <div className="lg:sticky lg:top-24 flex flex-col gap-4">
-              <div className="glass-panel p-4 sm:p-5 rounded-3xl flex flex-col gap-4 border border-slate-800 bg-slate-900/85 shadow-2xl backdrop-blur-xl">
-                <div className="flex items-center justify-between">
-                  <h2 className="text-sm font-bold text-white flex items-center gap-2">
-                    <Youtube size={18} className="text-red-500" />
-                    <span>원본 쇼츠 영상</span>
-                  </h2>
-                  <a
-                    href={`https://www.youtube.com/shorts/${recipe.shortsYoutubeId}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-orange-400 hover:text-orange-300 flex items-center gap-1 transition-colors font-medium"
-                  >
-                    <span>유튜브 열기</span>
-                    <ExternalLink size={12} />
-                  </a>
-                </div>
+          <div className="lg:col-span-5 xl:col-span-4 lg:h-full lg:flex lg:flex-col lg:justify-start lg:min-h-0">
+            <div className="p-4 sm:p-5 rounded-3xl flex flex-col gap-3.5 border border-[#D4AF37]/30 bg-[#133624] shadow-2xl">
+              <div className="flex items-center justify-between">
+                <h2 className="text-sm font-bold text-[#FDFBF4] flex items-center gap-2">
+                  <Youtube size={18} className="text-[#D4AF37]" />
+                  <span>원본 쇼츠 영상</span>
+                </h2>
+                <a
+                  href={`https://www.youtube.com/shorts/${recipe.shortsYoutubeId}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-[#D4AF37] hover:underline flex items-center gap-1 transition-colors font-medium"
+                >
+                  <span>유튜브 열기</span>
+                  <ExternalLink size={12} />
+                </a>
+              </div>
 
-                {/* 9:16 Shorts Player - Fits comfortably within viewport */}
-                <div className="relative w-full max-w-[340px] xl:max-w-[360px] mx-auto aspect-[9/16] max-h-[calc(100vh-170px)] rounded-2xl overflow-hidden bg-black shadow-2xl border border-slate-700/60">
-                  <iframe
-                    src={`https://www.youtube.com/embed/${recipe.shortsYoutubeId}?rel=0&playsinline=1`}
-                    title="원본 쇼츠 영상"
-                    className="w-full h-full border-0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  />
-                </div>
+              {/* 9:16 Shorts Player - Fits comfortably within viewport */}
+              <div className="relative w-full max-w-[340px] xl:max-w-[360px] mx-auto aspect-[9/16] max-h-[calc(100vh-230px)] rounded-2xl overflow-hidden bg-black shadow-2xl border border-[#D4AF37]/25">
+                <iframe
+                  src={`https://www.youtube.com/embed/${recipe.shortsYoutubeId}?rel=0&playsinline=1`}
+                  title="원본 쇼츠 영상"
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
 
-                <p className="text-[11px] text-slate-400 text-center leading-relaxed">
-                  💡 영상을 재생해두고 우측 레시피를 스크롤하며 조리해보세요!
-                </p>
+              <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#D9D2BE]/85 text-center leading-relaxed">
+                <Info size={13} className="text-[#D4AF37] shrink-0" />
+                <span>영상을 재생해두고 우측 레시피를 스크롤하며 조리해보세요.</span>
               </div>
             </div>
           </div>
         )}
 
         {/* =========================================================================
-            우측: 레시피 본문 (헤더, 재료, 조리 순서)
+            우측: 레시피 본문 (PC에서는 독립 스크롤되어 좌측 영상이 움직이지 않음)
            ========================================================================= */}
-        <div className={`${recipe.shortsYoutubeId ? 'lg:col-span-7 xl:col-span-8' : 'w-full'} flex flex-col gap-6`}>
+        <div className={`${recipe.shortsYoutubeId ? 'lg:col-span-7 xl:col-span-8' : 'w-full'} flex flex-col gap-6 lg:h-full lg:overflow-y-auto lg:pr-3 lg:pb-6 custom-scrollbar min-h-0`}>
           {/* 1. Header Info Card */}
-          <div className="glass-panel p-6 sm:p-8 rounded-3xl flex flex-col gap-4 border border-orange-500/30 bg-slate-900/70 shadow-xl relative">
+          <div className="p-6 sm:p-8 rounded-3xl flex flex-col gap-4 border border-[#D4AF37]/30 bg-[#133624] shadow-xl relative">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="bg-orange-500/20 text-orange-400 text-xs font-semibold px-3 py-1 rounded-full border border-orange-500/40">
-                  🤖 AI 1인분 레시피
+                <span className="bg-[#1B4731] text-[#D4AF37] text-xs font-semibold px-3 py-1 rounded-full border border-[#D4AF37]/40 flex items-center gap-1.5">
+                  <Sparkles size={13} />
+                  <span>AI 1인분 레시피</span>
                 </span>
-                <span className="bg-slate-800 text-slate-300 text-xs px-3 py-1 rounded-full">
+                <span className="bg-[#1B4731] text-[#E7E2D3] text-xs px-3 py-1 rounded-full border border-[#D4AF37]/20">
                   난이도: {recipe.difficulty}
                 </span>
               </div>
@@ -218,8 +214,8 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                 onClick={handleToggleBookmark}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border ${
                   bookmarked
-                    ? 'bg-amber-500/20 text-amber-300 border-amber-500/40 shadow-sm'
-                    : 'bg-slate-800/90 text-slate-300 border-slate-700 hover:text-white hover:border-slate-600'
+                    ? 'bg-[#D4AF37] text-[#1B4731] border-[#D4AF37] shadow-sm'
+                    : 'bg-[#1B4731] text-[#E7E2D3] border-[#D4AF37]/30 hover:text-[#FDFBF4] hover:border-[#D4AF37]'
                 }`}
                 title={bookmarked ? '북마크 해제' : '레시피 북마크 저장'}
               >
@@ -228,53 +224,54 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
               </button>
             </div>
 
-            <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight leading-snug">
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#FDFBF4] tracking-tight leading-snug">
               {recipe.title}
             </h1>
-            <p className="text-slate-400 text-sm leading-relaxed">
+            <p className="text-[#E7E2D3] text-sm leading-relaxed">
               {recipe.description}
             </p>
 
             {/* Stats bar */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-2">
-              <div className="bg-slate-950/60 px-3.5 py-3 rounded-2xl flex items-center gap-3 border border-slate-800">
-                <Users size={18} className="text-orange-400 shrink-0" />
+              <div className="bg-[#1B4731] px-3.5 py-3 rounded-2xl flex items-center gap-3 border border-[#D4AF37]/25">
+                <Users size={18} className="text-[#D4AF37] shrink-0" />
                 <div className="flex flex-col justify-center">
-                  <span className="text-[10px] text-slate-500 leading-tight">기준</span>
-                  <span className="text-xs font-semibold text-slate-200 leading-tight mt-0.5">{recipe.servingSize}인분</span>
+                  <span className="text-[10px] text-[#D9D2BE] leading-tight">기준</span>
+                  <span className="text-xs font-semibold text-[#FDFBF4] leading-tight mt-0.5">{recipe.servingSize}인분</span>
                 </div>
               </div>
-              <div className="bg-slate-950/60 px-3.5 py-3 rounded-2xl flex items-center gap-3 border border-slate-800">
-                <Clock size={18} className="text-amber-400 shrink-0" />
+              <div className="bg-[#1B4731] px-3.5 py-3 rounded-2xl flex items-center gap-3 border border-[#D4AF37]/25">
+                <Clock size={18} className="text-[#D4AF37] shrink-0" />
                 <div className="flex flex-col justify-center">
-                  <span className="text-[10px] text-slate-500 leading-tight">조리시간</span>
-                  <span className="text-xs font-semibold text-slate-200 leading-tight mt-0.5">{recipe.cookTimeMinutes}분</span>
+                  <span className="text-[10px] text-[#D9D2BE] leading-tight">조리시간</span>
+                  <span className="text-xs font-semibold text-[#FDFBF4] leading-tight mt-0.5">{recipe.cookTimeMinutes}분</span>
                 </div>
               </div>
-              <div className="bg-slate-950/60 px-3.5 py-3 rounded-2xl flex items-center gap-3 border border-slate-800">
-                <DollarSign size={18} className="text-emerald-400 shrink-0" />
+              <div className="bg-[#1B4731] px-3.5 py-3 rounded-2xl flex items-center gap-3 border border-[#D4AF37]/25">
+                <DollarSign size={18} className="text-[#D4AF37] shrink-0" />
                 <div className="flex flex-col justify-center">
-                  <span className="text-[10px] text-slate-500 leading-tight">예상 비용</span>
-                  <span className="text-xs font-semibold text-slate-200 leading-tight mt-0.5">{recipe.estimatedCost.toLocaleString()}원</span>
+                  <span className="text-[10px] text-[#D9D2BE] leading-tight">예상 비용</span>
+                  <span className="text-xs font-semibold text-[#FDFBF4] leading-tight mt-0.5">{recipe.estimatedCost.toLocaleString()}원</span>
                 </div>
               </div>
-              <div className="bg-slate-950/60 px-3.5 py-3 rounded-2xl flex items-center gap-3 border border-slate-800">
-                <Flame size={18} className="text-red-400 shrink-0" />
+              <div className="bg-[#1B4731] px-3.5 py-3 rounded-2xl flex items-center gap-3 border border-[#D4AF37]/25">
+                <Flame size={18} className="text-[#D4AF37] shrink-0" />
                 <div className="flex flex-col justify-center">
-                  <span className="text-[10px] text-slate-500 leading-tight">난이도</span>
-                  <span className="text-xs font-semibold text-slate-200 leading-tight mt-0.5">{recipe.difficulty}</span>
+                  <span className="text-[10px] text-[#D9D2BE] leading-tight">난이도</span>
+                  <span className="text-xs font-semibold text-[#FDFBF4] leading-tight mt-0.5">{recipe.difficulty}</span>
                 </div>
               </div>
             </div>
           </div>
 
           {/* 2. Ingredients & Cart CTA */}
-          <div className="glass-panel p-6 rounded-3xl flex flex-col gap-5 border border-slate-800 bg-slate-900/60 shadow-xl">
+          <div className="p-6 rounded-3xl flex flex-col gap-5 border border-[#D4AF37]/30 bg-[#133624] shadow-xl">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                  <span>🛒 필수 재료 목록</span>
-                  <span className="text-xs font-normal text-slate-400">
+                <h2 className="text-lg font-bold text-[#FDFBF4] flex items-center gap-2">
+                  <ShoppingCart size={18} className="text-[#D4AF37]" />
+                  <span>필수 재료 목록</span>
+                  <span className="text-xs font-normal text-[#D9D2BE]">
                     ({selectedCount}/{recipe.ingredients.length}개 선택됨)
                   </span>
                 </h2>
@@ -285,24 +282,25 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                 disabled={selectedCount === 0}
                 className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition-all ${
                   selectedCount === 0
-                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                    ? 'bg-[#1B4731] text-[#D9D2BE]/60 cursor-not-allowed border border-[#D4AF37]/20'
                     : added
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-gradient-to-r from-orange-500 to-amber-500 text-white hover:brightness-110 active:scale-98'
+                    ? 'bg-emerald-600 text-[#FDFBF4]'
+                    : 'bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] active:scale-98'
                 }`}
               >
                 <ShoppingBag size={15} />
                 <span>
                   {added
-                    ? '장바구니 담기 완료! ✨'
+                    ? '장바구니 담기 완료'
                     : `선택 재료 장바구니 담기 (${selectedCount}개)`}
                 </span>
               </button>
             </div>
 
-            <p className="text-[11px] text-slate-400">
-              💡 집에 이미 있는 재료는 클릭해서 체크를 해제하면 장바구니에서 제외됩니다.
-            </p>
+            <div className="flex items-center gap-1.5 text-[11px] text-[#D9D2BE]/80">
+              <Info size={13} className="text-[#D4AF37] shrink-0" />
+              <span>집에 이미 있는 재료는 체크를 해제하면 장바구니에서 제외됩니다.</span>
+            </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {recipe.ingredients.map((ing) => {
@@ -313,19 +311,19 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                     onClick={() => toggleIngredient(ing.ingredientId)}
                     className={`px-4 py-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all duration-200 select-none ${
                       isChecked
-                        ? 'bg-slate-950/80 border-orange-500/40 text-slate-100 shadow-sm hover:border-orange-500/60'
-                        : 'bg-slate-950/20 border-slate-800/40 text-slate-500 opacity-50 hover:opacity-75 hover:bg-slate-950/40'
+                        ? 'bg-[#1B4731] border-[#D4AF37]/50 text-[#FDFBF4] shadow-sm hover:border-[#D4AF37]'
+                        : 'bg-[#1B4731]/40 border-[#D4AF37]/15 text-[#D9D2BE]/50 opacity-60 hover:opacity-80'
                     }`}
                   >
                     <div className="flex items-center gap-3 min-w-0">
                       {isChecked ? (
-                        <CheckSquare size={17} className="text-orange-400 shrink-0 transition-transform scale-105" />
+                        <CheckSquare size={17} className="text-[#D4AF37] shrink-0" />
                       ) : (
-                        <Square size={17} className="text-slate-600 shrink-0" />
+                        <Square size={17} className="text-[#D9D2BE]/40 shrink-0" />
                       )}
                       <span
                         className={`text-sm font-medium leading-normal flex items-center truncate ${
-                          isChecked ? 'text-slate-100 font-semibold' : 'text-slate-500 line-through'
+                          isChecked ? 'text-[#FDFBF4] font-semibold' : 'text-[#D9D2BE]/50 line-through'
                         }`}
                       >
                         {ing.name}
@@ -335,13 +333,13 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                     <div className="flex items-center gap-2 shrink-0">
                       <span
                         className={`text-xs leading-normal font-semibold ${
-                          isChecked ? 'text-orange-400/90' : 'text-slate-600 line-through'
+                          isChecked ? 'text-[#D4AF37]' : 'text-[#D9D2BE]/40 line-through'
                         }`}
                       >
                         {ing.amount} {ing.unit}
                       </span>
                       {!isChecked && (
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-800/80 text-slate-500 font-medium">
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#133624] text-[#D9D2BE]/60 font-medium border border-[#D4AF37]/20">
                           제외
                         </span>
                       )}
@@ -353,34 +351,34 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
           </div>
 
           {/* 3. Cooking Steps */}
-          <div className="glass-panel p-6 rounded-3xl flex flex-col gap-5 border border-slate-800 bg-slate-900/60 shadow-xl">
+          <div className="p-6 rounded-3xl flex flex-col gap-5 border border-[#D4AF37]/30 bg-[#133624] shadow-xl">
             <div className="flex items-center justify-between">
-              <h2 className="text-lg font-bold text-white flex items-center gap-2">
-                <span>👨‍🍳 조리 순서</span>
+              <h2 className="text-lg font-bold text-[#FDFBF4] flex items-center gap-2">
+                <ChefHat size={18} className="text-[#D4AF37]" />
+                <span>조리 순서</span>
               </h2>
 
               {/* Unified Timer Sound Selector at top right */}
               <div className="relative" ref={soundMenuRef}>
                 <button
                   onClick={() => setShowSoundMenu((prev) => !prev)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-slate-800/90 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 text-xs font-medium transition-all shadow-sm"
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#1B4731] hover:bg-[#1B4731]/80 text-[#E7E2D3] hover:text-[#FDFBF4] border border-[#D4AF37]/30 text-xs font-medium transition-all shadow-sm"
                   title="조리 타이머 완료음 설정"
                 >
-                  <Volume2 size={13} className="text-orange-400" />
-                  <span className="text-[11px] text-slate-400 hidden sm:inline">알람음:</span>
-                  <span className="font-semibold text-slate-200">
-                    {TIMER_SOUND_OPTIONS.find((s) => s.id === soundType)?.icon}{' '}
+                  <Volume2 size={13} className="text-[#D4AF37]" />
+                  <span className="text-[11px] text-[#D9D2BE] hidden sm:inline">알람음:</span>
+                  <span className="font-semibold text-[#FDFBF4]">
                     {TIMER_SOUND_OPTIONS.find((s) => s.id === soundType)?.name}
                   </span>
                   <ChevronDown
                     size={12}
-                    className={`text-slate-400 transition-transform ${showSoundMenu ? 'rotate-180 text-orange-400' : ''}`}
+                    className={`text-[#D9D2BE] transition-transform ${showSoundMenu ? 'rotate-180 text-[#D4AF37]' : ''}`}
                   />
                 </button>
 
                 {showSoundMenu && (
-                  <div className="absolute right-0 top-full mt-2 w-56 p-2 rounded-2xl bg-slate-900/95 border border-slate-700 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95 duration-150">
-                    <div className="px-2.5 py-1 mb-1 text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  <div className="absolute right-0 top-full mt-2 w-56 p-2 rounded-2xl bg-[#133624] border border-[#D4AF37]/40 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95 duration-150">
+                    <div className="px-2.5 py-1 mb-1 text-[10px] font-bold text-[#D4AF37] uppercase tracking-wider">
                       타이머 완료음 설정
                     </div>
                     <div className="space-y-1">
@@ -390,19 +388,18 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                           onClick={() => handleSelectSound(option.id)}
                           className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs transition-all text-left ${
                             soundType === option.id
-                              ? 'bg-orange-500/20 text-orange-400 font-semibold border border-orange-500/30'
-                              : 'text-slate-300 hover:bg-slate-800 hover:text-white'
+                              ? 'bg-[#D4AF37] text-[#1B4731] font-semibold'
+                              : 'text-[#E7E2D3] hover:bg-[#1B4731] hover:text-[#FDFBF4]'
                           }`}
                         >
                           <div className="flex items-center gap-2">
-                            <span className="text-sm">{option.icon}</span>
                             <span>{option.name}</span>
                           </div>
-                          {soundType === option.id && <Check size={13} className="text-orange-400" />}
+                          {soundType === option.id && <Check size={13} className="text-[#1B4731]" />}
                         </button>
                       ))}
                     </div>
-                    <div className="mt-2 pt-1.5 border-t border-slate-800 px-2 text-[10px] text-slate-400 text-center">
+                    <div className="mt-2 pt-1.5 border-t border-[#D4AF37]/20 px-2 text-[10px] text-[#D9D2BE] text-center">
                       선택 시 알람 소리를 미리 들려드립니다
                     </div>
                   </div>
@@ -422,14 +419,14 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                 return (
                   <div
                     key={step.order}
-                    className="p-4 sm:p-5 rounded-2xl border border-slate-800/80 bg-slate-950/60 transition-all flex flex-col sm:flex-row gap-4 justify-between items-center hover:border-slate-700/80"
+                    className="p-4 sm:p-5 rounded-2xl border border-[#D4AF37]/20 bg-[#1B4731] transition-all flex flex-col sm:flex-row gap-4 justify-between items-center hover:border-[#D4AF37]/40"
                   >
                     {/* Step order & Text - Vertically centered in container */}
                     <div className="flex gap-3.5 items-center flex-1 min-w-0 w-full sm:w-auto">
-                      <span className="w-7 h-7 rounded-full bg-orange-500 text-white font-bold text-xs flex items-center justify-center shrink-0 shadow">
+                      <span className="w-7 h-7 rounded-full bg-[#D4AF37] text-[#1B4731] font-bold text-xs flex items-center justify-center shrink-0 shadow">
                         {step.order}
                       </span>
-                      <p className="text-slate-200 text-sm leading-relaxed font-medium flex-1 my-auto">
+                      <p className="text-[#FDFBF4] text-sm leading-relaxed font-medium flex-1 my-auto">
                         {cleanDescription}
                       </p>
                     </div>
@@ -444,6 +441,11 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                 );
               })}
             </div>
+          </div>
+
+          {/* 4. Footer inside right scrollable column */}
+          <div className="py-6 text-center text-xs text-[#D9D2BE]/70 border-t border-[#D4AF37]/20 mt-2 mb-4">
+            © 2026 혼밥레시피 — 자취생 맞춤 AI 레시피 플랫폼. All rights reserved.
           </div>
         </div>
       </div>
