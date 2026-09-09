@@ -55,8 +55,6 @@ export const ShortsCard: React.FC<ShortsCardProps> = ({ shorts, onConvertAi, onP
           loading="lazy"
         />
 
-        <div className="absolute bottom-0 inset-x-0 h-28 bg-[#0D2418]/85" />
-
         {/* Duration badge */}
         <div className="absolute top-3 left-3 bg-black/75 backdrop-blur-md text-white text-xs px-2.5 py-1 rounded-full flex items-center gap-1 border border-white/15">
           <Clock size={12} className="text-[#D4AF37]" />
@@ -66,11 +64,10 @@ export const ShortsCard: React.FC<ShortsCardProps> = ({ shorts, onConvertAi, onP
         {/* Bookmark button */}
         <button
           onClick={toggleBookmark}
-          className={`absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-all active:scale-90 z-10 ${
-            bookmarked
+          className={`absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-all active:scale-90 z-10 ${bookmarked
               ? 'bg-[#D4AF37] text-[#1B4731] border border-[#F3E5AB] shadow-md'
               : 'bg-black/60 text-stone-200 hover:text-white hover:bg-black/80 border border-white/20'
-          }`}
+            }`}
           aria-label="북마크"
         >
           <Bookmark size={16} fill={bookmarked ? 'currentColor' : 'none'} />
@@ -83,15 +80,21 @@ export const ShortsCard: React.FC<ShortsCardProps> = ({ shorts, onConvertAi, onP
           </div>
         </div>
 
-        {/* View count & tags overlay */}
-        <div className="absolute bottom-3 left-3 right-3 flex flex-col gap-2">
-          <div className="flex flex-wrap gap-1.5">
-            {shorts.tags && shorts.tags.slice(0, 3).map((tag, idx) => (
-              <span key={idx} className="bg-[#133624]/95 text-[#D4AF37] text-[10px] px-2 py-0.5 rounded-md border border-[#D4AF37]/40 font-semibold shadow-sm">
-                #{tag}
-              </span>
-            ))}
-          </div>
+        {/* View count & tags overlay - 해시태그 내용에 맞춰 높이가 유동적으로 감싸는 가변 배경 */}
+        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-[#0D2418]/95 via-[#0D2418]/70 to-transparent pt-7 pb-2.5 px-3 flex flex-col gap-1.5 pointer-events-none">
+          {/* 해시태그 (상위 5개만 깔끔하게 노출) */}
+          {shorts.tags && shorts.tags.length > 0 && (
+            <div className="flex flex-wrap gap-1.5">
+              {shorts.tags.slice(0, 5).map((tag, idx) => (
+                <span
+                  key={idx}
+                  className="bg-[#133624]/95 text-[#D4AF37] text-[10px] px-2 py-0.5 rounded-md border border-[#D4AF37]/40 font-semibold shadow-sm"
+                >
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
 
           <div className="flex items-center gap-1 text-stone-200 text-xs">
             <Eye size={13} className="text-[#D4AF37]" />
