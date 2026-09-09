@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { RecipeDetail } from '@/services/recipeApi';
 import { CookingTimer } from './CookingTimer';
+import { diaryService, CookingDiaryEntry, LEVEL_TIERS } from '@/services/diaryService';
 import {
   ShoppingBag,
   Users,
@@ -19,6 +20,12 @@ import {
   ChefHat,
   ShoppingCart,
   Info,
+  Camera,
+  Star,
+  Award,
+  MessageSquare,
+  Lock,
+  X,
 } from 'lucide-react';
 import { shortsApi } from '@/services/shortsApi';
 import { soundService, TimerSoundType, TIMER_SOUND_OPTIONS } from '@/services/soundService';
@@ -42,9 +49,38 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
   const [bookmarked, setBookmarked] = useState<boolean>(false);
   const [soundType, setSoundType] = useState<TimerSoundType>('ovenBell');
   const [showSoundMenu, setShowSoundMenu] = useState<boolean>(false);
+  const [selectedUserProfile, setSelectedUserProfile] = useState<{
+    nickname: string;
+    level: number;
+    levelTitle: string;
+    streakDay: number;
+  } | null>(null);
+  const [diaries, setDiaries] = useState<CookingDiaryEntry[]>([]);
   const soundMenuRef = useRef<HTMLDivElement>(null);
 
   const targetShortsId = recipe.shortsId || recipe.id;
+
+  // 일기 목록 로드 및 실시간 동기화
+  useEffect(() => {
+    setDiaries(diaryService.getDiariesByRecipe(recipe.id));
+
+    const handleDiaryChanged = () => {
+      setDiaries(diaryService.getDiariesByRecipe(recipe.id));
+    };
+
+    window.addEventListener('diary-added', handleDiaryChanged as EventListener);
+    window.addEventListener('diary-updated', handleDiaryChanged as EventListener);
+    return () => {
+      window.removeEventListener('diary-added', handleDiaryChanged as EventListener);
+      window.removeEventListener('diary-updated', handleDiaryChanged as EventListener);
+    };
+  }, [recipe.id]);
+
+  const handleToggleLike = (diaryId: string) => {
+    soundService.playButtonClick();
+    const updated = diaryService.toggleLike(diaryId);
+    setDiaries(updated.filter((d) => d.recipeId === recipe.id));
+  };
 
   useEffect(() => {
     // Check initial bookmark status from local storage
@@ -443,12 +479,168 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
             </div>
           </div>
 
-          {/* 4. Footer inside right scrollable column */}
-          <div className="py-6 text-center text-xs text-[#D9D2BE]/70 border-t border-[#D4AF37]/20 mt-2 mb-4">
-            © 2026 혼밥레시피 — 자취생 맞춤 AI 레시피 플랫폼. All rights reserved.
+          {/* 4. Community Reviews & Tips Section (사생활 보호: 사진 없이 솔직 한줄평만 노출) */}
+          <div className="p-6 rounded-3xl flex flex-col gap-5 border border-[#D4AF37]/30 bg-[#133624] shadow-xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-lg font-bold text-[#FDFBF4] flex items-center gap-2">
+                <MessageSquare size={18} className="text-[#D4AF37]" />
+                <span>자취생들의 솔직 한줄평 & 꿀팁</span>
+                <span className="text-xs font-semibold text-[#D4AF37] bg-[#1B4731] px-2.5 py-0.5 rounded-full border border-[#D4AF37]/30">
+                  {diaries.length}개
+                </span>
+              </h2>
+            </div>
+
+            {diaries.length === 0 ? (
+              <div className="p-8 rounded-2xl bg-[#0D2418]/60 border border-[#D4AF37]/20 text-center flex flex-col items-center gap-2">
+                <MessageSquare size={28} className="text-[#D4AF37]/60" />
+                <p className="text-sm font-bold text-[#FDFBF4]">아직 등록된 한줄평이 없습니다.</p>
+                <p className="text-xs text-[#D9D2BE]">
+                  요리 후 마이페이지 일기장에 기록을 남기면 이곳에 한줄평이 공유됩니다.
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {diaries.map((diary) => (
+                  <div
+                    key={diary.id}
+                    className="p-4 rounded-2xl bg-[#1B4731] border border-[#D4AF37]/30 shadow-md flex flex-col justify-between gap-3 hover:border-[#D4AF37]/60 transition-all"
+                  >
+                    {/* User header with clickable profile */}
+                    <div className="flex items-center justify-between">
+                      <button
+                        onClick={() => {
+                          soundService.playButtonClick();
+                          setSelectedUserProfile({
+                            nickname: diary.userNickname,
+                            level: diary.userLevel,
+                            levelTitle: diary.userLevelTitle,
+                            streakDay: diary.streakDay || 1,
+                          });
+                        }}
+                        className="flex items-center gap-2.5 text-left group cursor-pointer transition-transform active:scale-95"
+                        title="사용자 레벨 및 뱃지 보기"
+                      >
+                        <div className="w-8 h-8 rounded-full bg-[#D4AF37] text-[#1B4731] font-bold text-xs flex items-center justify-center shadow group-hover:ring-2 ring-[#D4AF37] transition-all">
+                          {diary.userNickname.charAt(0)}
+                        </div>
+                        <div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-xs font-bold text-[#FDFBF4] group-hover:text-[#D4AF37] transition-colors underline-offset-2 group-hover:underline">
+                              {diary.userNickname}
+                            </span>
+                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#0D2418] text-[#D4AF37] border border-[#D4AF37]/30 font-medium">
+                              Lv.{diary.userLevel}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1 mt-0.5">
+                            {[...Array(5)].map((_, i) => (
+                              <Star
+                                key={i}
+                                size={11}
+                                fill={i < diary.rating ? '#D4AF37' : 'none'}
+                                className={i < diary.rating ? 'text-[#D4AF37]' : 'text-stone-600'}
+                              />
+                            ))}
+                            <span className="text-[10px] text-[#D9D2BE] ml-1">
+                              {new Date(diary.createdAt).toLocaleDateString()}
+                            </span>
+                          </div>
+                        </div>
+                      </button>
+
+                      {/* Likes button */}
+                      <button
+                        onClick={() => handleToggleLike(diary.id)}
+                        className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 border transition-all ${
+                          diary.likedByMe
+                            ? 'bg-[#D4AF37] text-[#1B4731] border-[#F3E5AB] shadow-sm'
+                            : 'bg-[#0D2418] text-[#D9D2BE] border-[#D4AF37]/25 hover:border-[#D4AF37]'
+                        }`}
+                        title="맛있어 보여요!"
+                      >
+                        <span>😋</span>
+                        <span>{diary.likes}</span>
+                      </button>
+                    </div>
+
+                    {/* Review comment text */}
+                    <div className="bg-[#0D2418]/70 p-3 rounded-xl border border-[#D4AF37]/15 text-xs text-[#E7E2D3] leading-relaxed italic">
+                      &ldquo;{diary.comment}&rdquo;
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
+
+      {/* 다른 사용자 사생활 보호 미니 프로필 모달 (일기장은 비공개) */}
+      {selectedUserProfile && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div
+            className="absolute inset-0 bg-black/80 backdrop-blur-sm"
+            onClick={() => setSelectedUserProfile(null)}
+          />
+          <div className="relative z-10 w-full max-w-sm bg-[#133624] border border-[#D4AF37]/50 rounded-3xl overflow-hidden shadow-2xl p-6 flex flex-col items-center text-center gap-4 animate-in zoom-in-95">
+            {/* Close Button */}
+            <button
+              onClick={() => setSelectedUserProfile(null)}
+              className="absolute top-4 right-4 p-1.5 rounded-full bg-black/50 text-[#D9D2BE] hover:text-white transition-colors"
+            >
+              <X size={16} />
+            </button>
+
+            {/* Avatar */}
+            <div className="relative mt-2">
+              <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 p-0.5 shadow-xl">
+                <div className="w-full h-full rounded-2xl bg-slate-950 flex items-center justify-center text-white text-2xl font-black">
+                  {selectedUserProfile.nickname.charAt(0)}
+                </div>
+              </div>
+              <div className="absolute -bottom-1 -right-1 bg-[#D4AF37] text-[#1B4731] p-1 rounded-full shadow border-2 border-[#133624]">
+                <Award size={13} />
+              </div>
+            </div>
+
+            {/* Nickname & Level */}
+            <div className="flex flex-col items-center gap-1.5">
+              <h3 className="text-base font-extrabold text-[#FDFBF4]">
+                {selectedUserProfile.nickname}
+              </h3>
+              {(() => {
+                const tier = LEVEL_TIERS.find(t => t.level === selectedUserProfile.level) || LEVEL_TIERS[0];
+                return (
+                  <div className="flex flex-col items-center gap-1">
+                    <span className="text-xs px-3 py-1 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/40 font-bold flex items-center gap-1 shadow-sm">
+                      <span>{tier.badgeEmoji}</span>
+                      <span>Lv.{tier.level} {tier.title}</span>
+                    </span>
+                    <p className="text-[11px] text-[#D9D2BE] mt-0.5 max-w-[240px]">
+                      {tier.description}
+                    </p>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Streak Info */}
+            {selectedUserProfile.streakDay > 0 && (
+              <div className="w-full bg-[#1B4731] py-2 px-3 rounded-xl border border-[#D4AF37]/20 flex items-center justify-center gap-1.5 text-xs text-orange-400 font-semibold">
+                <Flame size={14} className="text-orange-500 animate-pulse" />
+                <span>연속 {selectedUserProfile.streakDay}일째 집밥 달성 중!</span>
+              </div>
+            )}
+
+            {/* Privacy Notice */}
+            <div className="w-full bg-[#0D2418] p-3 rounded-2xl border border-[#D4AF37]/20 flex items-center gap-2.5 text-left text-[11px] text-[#D9D2BE] mt-1">
+              <Lock size={15} className="text-[#D4AF37] shrink-0" />
+              <span>사생활 보호를 위해 사용자의 개인 요리 일기장 및 사진은 비공개 처리되어 있습니다.</span>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

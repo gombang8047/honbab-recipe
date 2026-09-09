@@ -15,6 +15,7 @@ import {
   Sparkles,
   Sun,
   Moon,
+  Camera,
 } from 'lucide-react';
 import { cartApi } from '@/services/cartApi';
 import { cartService } from '@/services/cartService';
@@ -326,6 +327,26 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
                     <span className="font-semibold text-[#FDFBF4]">마이페이지</span>
                     <span className="text-[10px] text-[#D9D2BE]">
                       내 혼밥 통계 및 식재료 관리
+                    </span>
+                  </div>
+                </button>
+
+                {/* 1-2. 혼밥 일기 쓰기 */}
+                <button
+                  onClick={() => handleMenuClick('/diary/write')}
+                  className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left ${
+                    pathname === '/diary/write'
+                      ? 'bg-[#1B4731] text-[#D4AF37] font-bold border border-[#D4AF37]/60'
+                      : 'text-stone-200 hover:bg-[#1B4731] hover:text-[#FDFBF4]'
+                  }`}
+                >
+                  <div className="p-1.5 rounded-lg bg-[#0D2418] text-[#D4AF37]">
+                    <Camera size={16} />
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="font-semibold text-[#FDFBF4]">혼밥 일기 쓰기</span>
+                    <span className="text-[10px] text-[#D9D2BE]">
+                      오늘 요리 인증 (+100 XP)
                     </span>
                   </div>
                 </button>
