@@ -14,6 +14,8 @@ public interface ShortsRepository extends JpaRepository<Shorts, Long> {
 
     boolean existsByYoutubeId(String youtubeId);
 
+    java.util.List<Shorts> findByStatus(Shorts.ShortsStatus status);
+
     @Query("SELECT s FROM Shorts s WHERE s.status = 'ACTIVE' ORDER BY s.createdAt DESC")
     Page<Shorts> findActiveShortsOrderByCreatedAtDesc(Pageable pageable);
 

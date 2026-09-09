@@ -87,6 +87,35 @@ public class YoutubeDataParser {
     }
 
     /**
+     * 외부 웹사이트 퍼가기/재생 가능 여부 확인 (status.embeddable 및 privacyStatus)
+     * - embeddable이 false이면 웹사이트 iframe에서 재생 불가 (오류 150/101)
+     * - privacyStatus가 private이면 비공개 영상이므로 재생 불가
+     */
+    @SuppressWarnings("unchecked")
+    public boolean isEmbeddable(Map<String, Object> videoItem) {
+        if (videoItem == null) {
+            return false;
+        }
+
+        Map<String, Object> status = (Map<String, Object>) videoItem.get("status");
+        if (status == null) {
+            return true;
+        }
+
+        Object privacyStatus = status.get("privacyStatus");
+        if (privacyStatus instanceof String && "private".equalsIgnoreCase((String) privacyStatus)) {
+            return false;
+        }
+
+        Object embeddable = status.get("embeddable");
+        if (embeddable instanceof Boolean) {
+            return (Boolean) embeddable;
+        }
+
+        return true;
+    }
+
+    /**
      * 영상 태그 및 제목/설명란 해시태그 일괄 추출
      */
     @SuppressWarnings("unchecked")

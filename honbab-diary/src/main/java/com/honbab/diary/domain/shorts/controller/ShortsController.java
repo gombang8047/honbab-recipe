@@ -16,6 +16,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @Tag(name = "쇼츠", description = "유튜브 쇼츠 피드 / 검색 / 북마크 / 크롤링 API")
 @RestController
 @RequestMapping("/api/v1/shorts")
@@ -94,5 +96,18 @@ public class ShortsController {
             @RequestParam(defaultValue = "자취요리") String keyword,
             @RequestParam(defaultValue = "10") int limit) {
         return ResponseEntity.ok(ApiResponse.ok(shortsCrawlingService.crawlByKeyword(keyword, limit)));
+    }
+
+    @Operation(summary = "외부 재생 불가 쇼츠 일괄 정리", description = "DB에 저장된 활성 쇼츠 중 외부 웹사이트 재생이 제한(embeddable=false)되었거나 삭제/비공개된 영상을 일괄 검사하여 비활성화합니다.")
+    @PostMapping("/cleanup-unembeddable")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> cleanupUnembeddable() {
+        return ResponseEntity.ok(ApiResponse.ok(shortsCrawlingService.cleanupUnembeddableShorts()));
+    }
+
+    @Operation(summary = "특정 쇼츠 수동 비활성화", description = "유튜브 ID로 특정 쇼츠를 피드에서 즉시 제외(비활성화)합니다.")
+    @PostMapping("/deactivate/{youtubeId}")
+    public ResponseEntity<ApiResponse<Boolean>> deactivateShorts(@PathVariable String youtubeId) {
+        boolean result = shortsCrawlingService.deactivateByYoutubeId(youtubeId);
+        return ResponseEntity.ok(ApiResponse.ok(result));
     }
 }

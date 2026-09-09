@@ -179,6 +179,12 @@ public class ShortsCrawlingService {
                 // 태그 추출 및 매핑
                 Set<String> tagNames = youtubeDataParser.extractTags(detail);
 
+                // 외부 사이트 재생 불가(embeddable=false) 영상 필터링 제외
+                if (!youtubeDataParser.isEmbeddable(detail)) {
+                    log.info("외부 사이트 재생 불가(embeddable=false) 영상 제외 건너뜀: {}", videoId);
+                    continue;
+                }
+
                 // 먹방/비레시피 영상 필터링 제외
                 if (isExcludedVideo(shorts.getTitle(), shorts.getChannelName(), tagNames)) {
                     log.info("먹방/비레시피 영상 제외 건너뜀: [{}] {}", shorts.getChannelName(), shorts.getTitle());
@@ -207,5 +213,84 @@ public class ShortsCrawlingService {
                 .skippedDuplicateCount(duplicateCount)
                 .savedTitles(savedTitles)
                 .build();
+    }
+
+    /**
+     * 기존 DB에 저장된 쇼츠 중 외부 재생 불가(embeddable=false)이거나 삭제/비공개된 쇼츠 일괄 정리(비활성화)
+     */
+    @Transactional
+    public Map<String, Object> cleanupUnembeddableShorts() {
+        log.info("=== [쇼츠 정리] 외부 사이트 재생 불가 쇼츠 검사 및 비활성화 시작 ===");
+        List<Shorts> activeShorts = shortsRepository.findByStatus(Shorts.ShortsStatus.ACTIVE);
+        if (activeShorts.isEmpty()) {
+            return Map.of("checkedCount", 0, "deactivatedCount", 0, "deactivatedIds", Collections.emptyList());
+        }
+
+        int deactivatedCount = 0;
+        List<String> deactivatedIds = new ArrayList<>();
+
+        // 유튜브 API는 한 번에 최대 50개 id 조회 가능하므로 50개씩 청크 분할
+        int chunkSize = 50;
+        for (int i = 0; i < activeShorts.size(); i += chunkSize) {
+            List<Shorts> chunk = activeShorts.subList(i, Math.min(i + chunkSize, activeShorts.size()));
+            List<String> videoIds = chunk.stream().map(Shorts::getYoutubeId).toList();
+
+            try {
+                List<Map<String, Object>> videoDetails = youtubeApiClient.getVideoDetails(videoIds);
+                Map<String, Map<String, Object>> detailMap = new HashMap<>();
+                for (Map<String, Object> item : videoDetails) {
+                    String vid = youtubeDataParser.extractYoutubeId(item);
+                    if (vid != null) {
+                        detailMap.put(vid, item);
+                    }
+                }
+
+                for (Shorts s : chunk) {
+                    Map<String, Object> detail = detailMap.get(s.getYoutubeId());
+                    boolean shouldDeactivate = false;
+
+                    // 1) 유튜브 API 응답에서 완전히 사라진 경우 (영상 삭제 또는 비공개)
+                    if (detail == null) {
+                        shouldDeactivate = true;
+                        log.info("유튜브에서 조회되지 않는 쇼츠 비활성화: id={}, youtubeId={}", s.getId(), s.getYoutubeId());
+                    }
+                    // 2) 외부 웹사이트 퍼가기 금지 또는 비공개 영상인 경우
+                    else if (!youtubeDataParser.isEmbeddable(detail)) {
+                        shouldDeactivate = true;
+                        log.info("외부 재생 불가(embeddable=false) 쇼츠 비활성화: id={}, youtubeId={}, title={}",
+                                s.getId(), s.getYoutubeId(), s.getTitle());
+                    }
+
+                    if (shouldDeactivate) {
+                        s.deactivate();
+                        deactivatedCount++;
+                        deactivatedIds.add(s.getYoutubeId());
+                    }
+                }
+            } catch (Exception e) {
+                log.error("쇼츠 일괄 검사 중 오류 발생: {}", e.getMessage(), e);
+            }
+        }
+
+        log.info("=== [쇼츠 정리] 완료: 총 {}개 검사 중 {}개 비활성화 처리 ===", activeShorts.size(), deactivatedCount);
+        return Map.of(
+                "checkedCount", activeShorts.size(),
+                "deactivatedCount", deactivatedCount,
+                "deactivatedIds", deactivatedIds
+        );
+    }
+
+    /**
+     * 특정 유튜브 ID 쇼츠 수동 비활성화
+     */
+    @Transactional
+    public boolean deactivateByYoutubeId(String youtubeId) {
+        return shortsRepository.findByYoutubeId(youtubeId)
+                .map(s -> {
+                    s.deactivate();
+                    log.info("쇼츠 수동 비활성화 완료: youtubeId={}", youtubeId);
+                    return true;
+                })
+                .orElse(false);
     }
 }

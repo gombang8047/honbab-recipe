@@ -105,11 +105,10 @@ export const ShortsPlayerModal: React.FC<ShortsPlayerModalProps> = ({
               </div>
               <button
                 onClick={handleToggleBookmark}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${
-                  bookmarked
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-semibold transition-all border ${bookmarked
                     ? 'bg-[#D4AF37] text-[#1B4731] border-[#F3E5AB] shadow-md'
                     : 'bg-[#1B4731] text-[#E7E2D3] border-[#D4AF37]/30 hover:border-[#D4AF37] hover:text-[#FDFBF4]'
-                }`}
+                  }`}
               >
                 <Bookmark size={14} fill={bookmarked ? 'currentColor' : 'none'} />
                 <span>{bookmarked ? '저장됨' : '북마크'}</span>
@@ -133,12 +132,12 @@ export const ShortsPlayerModal: React.FC<ShortsPlayerModalProps> = ({
               </div>
             </div>
 
-            {/* Tags */}
+            {/* Tags (상위 5개만 표시) */}
             {shorts.tags && shorts.tags.length > 0 && (
               <div className="flex flex-col gap-2">
                 <span className="text-xs font-semibold text-[#D4AF37]">관련 태그</span>
                 <div className="flex flex-wrap gap-1.5">
-                  {shorts.tags.map((tag, idx) => (
+                  {shorts.tags.slice(0, 5).map((tag, idx) => (
                     <span
                       key={idx}
                       className="bg-[#1B4731] text-[#D4AF37] text-xs px-2.5 py-1 rounded-lg border border-[#D4AF37]/40 font-semibold shadow-sm"
