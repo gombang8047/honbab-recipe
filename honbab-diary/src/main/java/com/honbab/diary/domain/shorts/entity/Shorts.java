@@ -87,6 +87,14 @@ public class Shorts {
         this.tags.add(tag);
     }
 
+    public void deactivate() {
+        this.status = ShortsStatus.INACTIVE;
+    }
+
+    public void activate() {
+        this.status = ShortsStatus.ACTIVE;
+    }
+
     public enum ShortsStatus {
         ACTIVE, INACTIVE, PROCESSING, ERROR
     }

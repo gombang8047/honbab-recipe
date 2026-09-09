@@ -71,7 +71,7 @@ public class YoutubeApiClient {
         try {
             String idsParam = String.join(",", videoIds);
             URI uri = UriComponentsBuilder.fromHttpUrl(YOUTUBE_VIDEOS_URL)
-                    .queryParam("part", "snippet,contentDetails,statistics")
+                    .queryParam("part", "snippet,contentDetails,statistics,status")
                     .queryParam("id", idsParam)
                     .queryParam("key", apiKey)
                     .build()
@@ -179,7 +179,8 @@ public class YoutubeApiClient {
                             "thumbnails", Map.of("high", Map.of("url", "https://img.youtube.com/vi/" + id + "/hqdefault.jpg"))
                     ),
                     "contentDetails", Map.of("duration", "PT50S"),
-                    "statistics", Map.of("viewCount", "150000", "likeCount", "5200")
+                    "statistics", Map.of("viewCount", "150000", "likeCount", "5200"),
+                    "status", Map.of("embeddable", true, "privacyStatus", "public")
             ));
         }
         return list;

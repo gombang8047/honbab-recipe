@@ -34,7 +34,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         // 공개 엔드포인트
                         .requestMatchers("/api/v1/auth/**").permitAll()
-                        .requestMatchers("/api/v1/shorts/crawl").permitAll()
+                        .requestMatchers("/api/v1/shorts/crawl", "/api/v1/shorts/cleanup-unembeddable", "/api/v1/shorts/deactivate/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/shorts/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/recipes/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/shorts/*/recipe").permitAll()
