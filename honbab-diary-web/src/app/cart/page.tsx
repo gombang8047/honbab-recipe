@@ -7,8 +7,6 @@ import { soundService } from '@/services/soundService';
 import {
   ShoppingBag,
   Trash2,
-  Plus,
-  Minus,
   ExternalLink,
   CheckSquare,
   Square,
@@ -60,8 +58,8 @@ export default function CartPage() {
     let kurlySum = 0;
     checkedItems.forEach((item) => {
       const pricing = getIngredientPricing(item.name, item.amount, item.unit);
-      coupangSum += pricing.recipeCoupangCost * item.quantity;
-      kurlySum += pricing.recipeKurlyCost * item.quantity;
+      coupangSum += pricing.recipeCoupangCost;
+      kurlySum += pricing.recipeKurlyCost;
     });
     const avg = checkedItems.length > 0 ? Math.round(((coupangSum + kurlySum) / 2) / 10) * 10 : 0;
     return {
@@ -82,12 +80,6 @@ export default function CartPage() {
   const handleToggleItem = (id: string) => {
     soundService.playButtonClick();
     const updated = cartService.toggleChecked(id);
-    setItems(updated);
-  };
-
-  const handleQuantityChange = (id: string, delta: number) => {
-    soundService.playButtonClick();
-    const updated = cartService.updateQuantity(id, delta);
     setItems(updated);
   };
 
@@ -260,11 +252,11 @@ export default function CartPage() {
                             <div className="flex items-center gap-2 mt-0.5 text-[11px] text-slate-400">
                               <span>1끼 소요액:</span>
                               <span className="text-red-300 font-semibold">
-                                쿠팡 ~{(pricing.recipeCoupangCost * item.quantity).toLocaleString()}원
+                                쿠팡 ~{pricing.recipeCoupangCost.toLocaleString()}원
                               </span>
                               <span className="text-slate-600">|</span>
                               <span className="text-purple-300 font-semibold">
-                                컬리 ~{(pricing.recipeKurlyCost * item.quantity).toLocaleString()}원
+                                컬리 ~{pricing.recipeKurlyCost.toLocaleString()}원
                               </span>
                             </div>
                           </div>
@@ -272,7 +264,7 @@ export default function CartPage() {
 
                         {/* Side-by-Side Platform Price Comparison Buttons & Controls */}
                         <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                          {/* Coupang Link Button without verbose unit text */}
+                          {/* Coupang Link Button */}
                           <a
                             href={pricing.coupangUrl}
                             target="_blank"
@@ -284,10 +276,11 @@ export default function CartPage() {
                             <span className="font-extrabold text-white text-xs">
                               ~{pricing.unitCoupangPrice.toLocaleString()}원
                             </span>
+                            <span className="text-[10px] text-red-300/70 font-normal">({pricing.unitLabel})</span>
                             <ExternalLink size={11} className="text-red-400/70 group-hover:text-red-300" />
                           </a>
 
-                          {/* Kurly Link Button without verbose unit text */}
+                          {/* Kurly Link Button */}
                           <a
                             href={pricing.kurlyUrl}
                             target="_blank"
@@ -299,34 +292,14 @@ export default function CartPage() {
                             <span className="font-extrabold text-white text-xs">
                               ~{pricing.unitKurlyPrice.toLocaleString()}원
                             </span>
+                            <span className="text-[10px] text-purple-300/70 font-normal">({pricing.unitLabel})</span>
                             <ExternalLink size={11} className="text-purple-400/70 group-hover:text-purple-300" />
                           </a>
-
-                          {/* Quantity Controller */}
-                          <div className="flex items-center gap-1.5 bg-slate-900 px-2 py-1 rounded-xl border border-slate-800 ml-1 shrink-0">
-                            <button
-                              onClick={() => handleQuantityChange(item.id, -1)}
-                              className="text-slate-400 hover:text-white p-0.5"
-                              title="수량 감소"
-                            >
-                              <Minus size={11} />
-                            </button>
-                            <span className="text-xs font-bold font-mono w-4 text-center text-white">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => handleQuantityChange(item.id, 1)}
-                              className="text-slate-400 hover:text-white p-0.5"
-                              title="수량 증가"
-                            >
-                              <Plus size={11} />
-                            </button>
-                          </div>
 
                           {/* Remove button */}
                           <button
                             onClick={() => handleRemoveItem(item.id)}
-                            className="text-slate-500 hover:text-red-400 p-1.5 rounded-lg hover:bg-slate-800 transition-colors shrink-0"
+                            className="text-slate-500 hover:text-red-400 p-2 rounded-xl hover:bg-slate-800 transition-colors shrink-0 ml-1 border border-transparent hover:border-red-500/20"
                             title="재료 삭제"
                           >
                             <Trash2 size={15} />
