@@ -24,6 +24,7 @@ export default function HomePage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [sortMode, setSortMode] = useState<'RANDOM' | 'TRENDING' | 'LATEST'>('RANDOM');
   const [convertingShorts, setConvertingShorts] = useState<ShortsItem | null>(null);
+  const [isNavigatingToRecipe, setIsNavigatingToRecipe] = useState(false);
   const [playingShorts, setPlayingShorts] = useState<ShortsItem | null>(null);
   const [gridCols, setGridCols] = useState<number>(4);
 
@@ -162,15 +163,34 @@ export default function HomePage() {
     return () => observer.disconnect();
   }, [loadMore, hasMore, loadingMore, initialLoading]);
 
+  // 모달 상태 초기화 및 브라우저 뒤로가기 대응
+  useEffect(() => {
+    const handleReset = () => {
+      setConvertingShorts(null);
+      setIsNavigatingToRecipe(false);
+    };
+    window.addEventListener('popstate', handleReset);
+    return () => {
+      window.removeEventListener('popstate', handleReset);
+      handleReset();
+    };
+  }, []);
+
   const handleConvertAi = async (shorts: ShortsItem) => {
     setConvertingShorts(shorts);
+    setIsNavigatingToRecipe(false);
     try {
       const recipe = await recipeApi.convertToRecipe(shorts.id);
+      setIsNavigatingToRecipe(true);
+      router.prefetch(`/recipe/${recipe.id}`);
       router.push(`/recipe/${recipe.id}`);
-    } catch {
-      router.push(`/recipe/1`);
-    } finally {
-      setConvertingShorts(null);
+      // 모달을 바로 닫지 않고 새 페이지가 렌더링될 때까지 대기화면을 유지하여
+      // 메인화면이 깜빡이는 렉 현상을 방지합니다.
+    } catch (err) {
+      console.error('레시피 변환 실패, 기본 레시피로 이동:', err);
+      setIsNavigatingToRecipe(true);
+      router.prefetch('/recipe/1');
+      router.push('/recipe/1');
     }
   };
 
@@ -435,7 +455,11 @@ export default function HomePage() {
       />
 
       {/* AI Conversion Processing Modal */}
-      <AiConversionModal isOpen={!!convertingShorts} shortsTitle={convertingShorts?.title} />
+      <AiConversionModal
+        isOpen={!!convertingShorts}
+        shortsTitle={convertingShorts?.title}
+        isReady={isNavigatingToRecipe}
+      />
     </div>
   );
 }

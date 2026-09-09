@@ -56,11 +56,27 @@ const MOCK_RECIPE: RecipeDetail = {
   ]
 };
 
+const recipeCache = new Map<number, RecipeDetail>();
+
 export const recipeApi = {
+  getCached: (recipeId: number): RecipeDetail | null => {
+    return recipeCache.get(recipeId) || null;
+  },
+
+  setCache: (recipe: RecipeDetail) => {
+    if (recipe && recipe.id) {
+      recipeCache.set(recipe.id, recipe);
+    }
+  },
+
   convertToRecipe: async (shortsId: number): Promise<RecipeDetail> => {
     try {
       const res: any = await apiClient.post(`/shorts/${shortsId}/recipe`);
-      return res.data || res;
+      const data = res.data || res;
+      if (data && data.id) {
+        recipeCache.set(data.id, data);
+      }
+      return data;
     } catch (err) {
       console.error('AI 레시피 변환 실패:', err);
       throw err;
@@ -68,11 +84,19 @@ export const recipeApi = {
   },
 
   getDetail: async (recipeId: number): Promise<RecipeDetail> => {
+    if (recipeCache.has(recipeId)) {
+      return recipeCache.get(recipeId)!;
+    }
     try {
       const res: any = await apiClient.get(`/recipes/${recipeId}`);
-      return res.data || res;
+      const data = res.data || res;
+      if (data && data.id) {
+        recipeCache.set(data.id, data);
+      }
+      return data;
     } catch {
       return MOCK_RECIPE;
     }
   }
 };
+

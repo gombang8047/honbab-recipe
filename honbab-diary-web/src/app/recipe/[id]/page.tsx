@@ -11,8 +11,9 @@ export default function RecipePage() {
   const params = useParams();
   const router = useRouter();
   const recipeId = Number(params?.id) || 1;
-  const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
-  const [loading, setLoading] = useState(true);
+  const cachedRecipe = recipeApi.getCached(recipeId);
+  const [recipe, setRecipe] = useState<RecipeDetail | null>(cachedRecipe);
+  const [loading, setLoading] = useState(!cachedRecipe);
 
   useEffect(() => {
     recipeApi.getDetail(recipeId).then((data) => {
