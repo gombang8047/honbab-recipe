@@ -120,8 +120,8 @@ export const shortsApi = {
 
     // 2. Fallback: 전체 쇼츠(totalElements) 범위에서 무작위 페이지 선택
     try {
-      let total = totalHint;
-      if (!total || total <= size) {
+      let total = totalHint || 500;
+      if (total <= size) {
         const countRes: any = await apiClient.get(`/shorts?page=0&size=1`);
         total = countRes?.data?.totalElements || 500;
       }
