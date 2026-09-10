@@ -27,6 +27,7 @@ import {
   BookOpen,
   ExternalLink,
   Lock,
+  Trash2,
 } from 'lucide-react';
 import { settingsService, AppSettings } from '@/services/settingsService';
 import { shortsApi, ShortsItem } from '@/services/shortsApi';
@@ -194,6 +195,17 @@ export default function MyPage() {
     }
   };
 
+  const handleDeleteDiary = (e: React.MouseEvent, diaryId: string) => {
+    e.stopPropagation();
+    if (!window.confirm('정말 이 요리 일기를 삭제하시겠습니까?')) return;
+    soundService.playButtonClick();
+    diaryService.deleteDiary(diaryId);
+    setMyDiaries(prev => prev.filter(d => d.id !== diaryId));
+    if (selectedDiary && selectedDiary.id === diaryId) {
+      setSelectedDiary(null);
+    }
+  };
+
   const formatDate = (val: string | number) => {
     try {
       const d = new Date(val);
@@ -204,22 +216,22 @@ export default function MyPage() {
   };
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-8">
+    <div className="max-w-5xl mx-auto px-4 py-8 text-[#FDFBF4]">
       {/* 1. 프로필 요약 카드 */}
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 bg-slate-900/70 shadow-2xl mb-8 relative overflow-hidden">
+      <div className="p-6 sm:p-8 rounded-3xl border border-[#D4AF37]/40 bg-[#133624] shadow-2xl mb-8 relative overflow-hidden">
         {/* Background ambient glow */}
-        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-amber-500/15 via-orange-500/10 to-transparent rounded-full blur-3xl pointer-events-none"></div>
+        <div className="absolute top-0 right-0 w-80 h-80 bg-gradient-to-br from-[#D4AF37]/15 via-[#1B4731]/30 to-transparent rounded-full blur-3xl pointer-events-none"></div>
 
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 relative z-10">
           <div className="flex items-center gap-5 flex-1 min-w-0">
             {/* Avatar */}
             <div className="relative shrink-0">
-              <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 p-1 shadow-xl">
-                <div className="w-full h-full rounded-xl bg-slate-950 flex items-center justify-center text-white text-2xl font-bold">
+              <div className="w-20 h-20 rounded-2xl bg-gradient-to-tr from-[#D4AF37] to-[#F3E5AB] p-1 shadow-xl">
+                <div className="w-full h-full rounded-xl bg-[#0D2418] flex items-center justify-center text-[#FDFBF4] text-2xl font-bold">
                   {nickname.charAt(0) || '혼'}
                 </div>
               </div>
-              <div className="absolute -bottom-1 -right-1 bg-amber-500 text-slate-950 p-1 rounded-full shadow border-2 border-slate-900">
+              <div className="absolute -bottom-1 -right-1 bg-[#D4AF37] text-[#1B4731] p-1 rounded-full shadow border-2 border-[#133624]">
                 <Award size={14} />
               </div>
             </div>
@@ -233,12 +245,12 @@ export default function MyPage() {
                       type="text"
                       value={editNameInput}
                       onChange={(e) => setEditNameInput(e.target.value)}
-                      className="bg-slate-950 border border-amber-500 rounded-lg px-2.5 py-1 text-sm text-white outline-none w-40 font-semibold"
+                      className="bg-[#0D2418] border border-[#D4AF37] rounded-lg px-2.5 py-1 text-sm text-[#FDFBF4] outline-none w-40 font-semibold"
                       autoFocus
                     />
                     <button
                       onClick={handleSaveNickname}
-                      className="p-1.5 rounded-lg bg-orange-500 hover:bg-orange-600 text-white transition-colors"
+                      className="p-1.5 rounded-lg bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] transition-colors"
                       title="저장"
                     >
                       <Check size={14} />
@@ -246,13 +258,13 @@ export default function MyPage() {
                   </div>
                 ) : (
                   <div className="flex items-center gap-2">
-                    <h1 className="text-xl sm:text-2xl font-bold text-white">{nickname}</h1>
+                    <h1 className="text-xl sm:text-2xl font-bold text-[#FDFBF4]">{nickname}</h1>
                     <button
                       onClick={() => {
                         soundService.playButtonClick();
                         setIsEditingNickname(true);
                       }}
-                      className="p-1 text-slate-400 hover:text-white transition-colors"
+                      className="p-1 text-[#D9D2BE] hover:text-[#FDFBF4] transition-colors"
                       title="닉네임 변경"
                     >
                       <Edit2 size={14} />
@@ -265,12 +277,12 @@ export default function MyPage() {
                       soundService.playButtonClick();
                       setIsLevelModalOpen(true);
                     }}
-                    className="text-xs px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/20 to-orange-500/20 hover:from-amber-500/30 hover:to-orange-500/30 text-amber-300 border border-amber-500/40 font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95 group cursor-pointer"
+                    className="text-xs px-3 py-1 rounded-full bg-[#D4AF37]/20 hover:bg-[#D4AF37]/30 text-[#D4AF37] border border-[#D4AF37]/40 font-bold flex items-center gap-1.5 shadow-sm transition-all active:scale-95 group cursor-pointer"
                     title="혼밥 요리사 20단계 전체 등급표 보기"
                   >
                     <span>{userLevelInfo.badgeEmoji}</span>
                     <span>Lv.{userLevelInfo.level} {userLevelInfo.title}</span>
-                    <span className="text-[10px] text-amber-400/60 group-hover:text-amber-300 transition-colors ml-0.5 font-normal">
+                    <span className="text-[10px] text-[#D4AF37]/70 group-hover:text-[#D4AF37] transition-colors ml-0.5 font-normal">
                       [등급표]
                     </span>
                   </button>
@@ -279,32 +291,32 @@ export default function MyPage() {
 
               {/* XP Level Progress Bar */}
               {userLevelInfo && (
-                <div className="mt-2.5 w-full max-w-md bg-slate-950/60 p-2.5 rounded-xl border border-slate-800/80">
+                <div className="mt-2.5 w-full max-w-md bg-[#0D2418] p-2.5 rounded-xl border border-[#D4AF37]/30">
                   <div className="flex items-center justify-between text-[11px] mb-1">
-                    <span className="text-slate-300 font-semibold flex items-center gap-1">
+                    <span className="text-[#D9D2BE] font-semibold flex items-center gap-1">
                       <Award size={12} className="text-[#D4AF37]" />
-                      <span>경험치: <strong className="text-amber-400">{userLevelInfo.currentXp.toLocaleString()} XP</strong></span>
+                      <span>경험치: <strong className="text-[#D4AF37]">{userLevelInfo.currentXp.toLocaleString()} XP</strong></span>
                     </span>
-                    <span className="text-slate-400 text-[10px]">
+                    <span className="text-[#D9D2BE]/80 text-[10px]">
                       {userLevelInfo.level >= 20 ? (
-                        <strong className="text-amber-300">최고 등급 달성! 👑</strong>
+                        <strong className="text-[#D4AF37]">최고 등급 달성! 👑</strong>
                       ) : (
-                        <>다음 등급까지 <strong className="text-amber-300">{userLevelInfo.xpToNext.toLocaleString()} XP</strong> 남음</>
+                        <>다음 등급까지 <strong className="text-[#D4AF37]">{userLevelInfo.xpToNext.toLocaleString()} XP</strong> 남음</>
                       )}
                     </span>
                   </div>
-                  <div className="w-full h-2 bg-slate-800/90 rounded-full overflow-hidden border border-slate-700/60 p-0.5">
+                  <div className="w-full h-2 bg-[#1B4731] rounded-full overflow-hidden border border-[#D4AF37]/30 p-0.5">
                     <div
-                      className="h-full bg-gradient-to-r from-amber-500 via-orange-500 to-amber-400 rounded-full transition-all duration-500 shadow-sm"
+                      className="h-full bg-gradient-to-r from-[#D4AF37] via-[#E5C358] to-[#D4AF37] rounded-full transition-all duration-500 shadow-sm"
                       style={{ width: `${Math.min(100, Math.max(5, userLevelInfo.progressPercent))}%` }}
                     />
                   </div>
                 </div>
               )}
 
-              <p className="text-xs text-slate-400 mt-2 flex items-center gap-2 flex-wrap">
+              <p className="text-xs text-[#D9D2BE] mt-2 flex items-center gap-2 flex-wrap">
                 <span>카카오 연동 회원</span>
-                <span className="text-slate-600">•</span>
+                <span className="text-[#D4AF37]/40">•</span>
                 {streakDays > 0 ? (
                   <span className="text-orange-400 font-semibold flex items-center gap-1 bg-orange-500/10 px-2.5 py-0.5 rounded-full border border-orange-500/20">
                     <Flame size={13} className="text-orange-500 animate-pulse" />
@@ -326,7 +338,7 @@ export default function MyPage() {
                 soundService.playButtonClick();
                 router.push('/diary/write');
               }}
-              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 text-xs font-extrabold transition-all shadow-lg hover:shadow-orange-500/20 active:scale-95"
+              className="w-full sm:w-auto flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] text-xs font-extrabold transition-all shadow-lg active:scale-95"
             >
               <Camera size={15} />
               <span>오늘 요리 인증</span>
@@ -338,61 +350,51 @@ export default function MyPage() {
       {/* 2. 혼밥 대시보드 (자취 절약 & 요리 통계) */}
       <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Sparkles size={18} className="text-orange-400" />
+          <h2 className="text-lg font-bold text-[#FDFBF4] flex items-center gap-2">
+            <Sparkles size={18} className="text-[#D4AF37]" />
             나의 혼밥 레벨 & 요리 통계
           </h2>
-          <span className="text-xs text-slate-500 font-mono">실시간 반영</span>
+          <span className="text-xs text-[#D9D2BE]/70 font-mono">실시간 반영</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1: Meals Cooked */}
-          <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-slate-900/60 shadow-lg flex items-center justify-between">
+          <div className="p-5 rounded-2xl border border-[#D4AF37]/30 bg-[#133624] shadow-lg flex flex-col justify-between">
             <div>
-              <span className="text-xs text-slate-400 font-medium">직접 만든 집밥</span>
-              <div className="text-2xl font-bold text-white mt-1">
+              <span className="text-xs text-[#D9D2BE] font-medium">직접 만든 집밥</span>
+              <div className="text-2xl font-bold text-[#FDFBF4] mt-1">
                 {mealsCooked}
-                <span className="text-sm font-normal text-slate-400 ml-1">회</span>
+                <span className="text-sm font-normal text-[#D9D2BE] ml-1">회</span>
               </div>
-              <span className="text-[11px] text-orange-400 mt-1 block">
+              <span className="text-[11px] text-[#D4AF37] mt-1 block">
                 {mealsCooked > 0 ? `누적 ${mealsCooked}회 인증 완료` : '첫 요리를 인증해보세요'}
               </span>
-            </div>
-            <div className="p-3 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
-              <ChefHat size={24} />
             </div>
           </div>
 
           {/* Card 2: Saved Money */}
-          <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-slate-900/60 shadow-lg flex items-center justify-between">
+          <div className="p-5 rounded-2xl border border-[#D4AF37]/30 bg-[#133624] shadow-lg flex flex-col justify-between">
             <div>
-              <span className="text-xs text-slate-400 font-medium">절약한 외식비</span>
+              <span className="text-xs text-[#D9D2BE] font-medium">절약한 외식비</span>
               <div className="text-2xl font-bold text-emerald-400 mt-1">
                 +{totalSaved.toLocaleString()}
-                <span className="text-sm font-normal text-slate-400 ml-1">원</span>
+                <span className="text-sm font-normal text-[#D9D2BE] ml-1">원</span>
               </div>
-              <span className="text-[11px] text-slate-400 mt-1 block">외식 1회 평균 대비</span>
-            </div>
-            <div className="p-3 rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-              <DollarSign size={24} />
+              <span className="text-[11px] text-[#D9D2BE]/70 mt-1 block">외식 1회 평균 대비</span>
             </div>
           </div>
 
           {/* Card 3: Streak */}
-          <div className="glass-panel p-5 rounded-2xl border border-slate-800 bg-slate-900/60 shadow-lg flex items-center justify-between">
+          <div className="p-5 rounded-2xl border border-[#D4AF37]/30 bg-[#133624] shadow-lg flex flex-col justify-between">
             <div>
-              <span className="text-xs text-slate-400 font-medium">연속 집밥 스트릭</span>
-              <div className="text-2xl font-bold text-amber-400 mt-1 flex items-center gap-1">
+              <span className="text-xs text-[#D9D2BE] font-medium">연속 집밥 스트릭</span>
+              <div className="text-2xl font-bold text-[#D4AF37] mt-1">
                 {streakDays}
-                <span className="text-sm font-normal text-slate-400">일째</span>
-                <Flame size={18} className="text-orange-500" />
+                <span className="text-sm font-normal text-[#D9D2BE] ml-1">일째</span>
               </div>
-              <span className="text-[11px] text-amber-300/80 mt-1 block">
+              <span className="text-[11px] text-[#D4AF37]/90 mt-1 block">
                 {streakDays > 0 ? `연속 보너스 +${Math.min(50, streakDays * 10)} XP` : '매일 연속 인증 시 보너스'}
               </span>
-            </div>
-            <div className="p-3 rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
-              <Flame size={24} />
             </div>
           </div>
 
@@ -400,40 +402,37 @@ export default function MyPage() {
           <Link
             href="/bookmarks"
             onClick={() => soundService.playButtonClick()}
-            className="glass-panel p-5 rounded-2xl border border-slate-800 hover:border-amber-500/40 bg-slate-900/60 shadow-lg flex items-center justify-between transition-all group"
+            className="p-5 rounded-2xl border border-[#D4AF37]/30 hover:border-[#D4AF37] bg-[#133624] shadow-lg flex flex-col justify-between transition-all group"
           >
             <div>
-              <span className="text-xs text-slate-400 font-medium">저장한 북마크</span>
-              <div className="text-2xl font-bold text-cyan-300 mt-1 group-hover:scale-105 transition-transform">
+              <span className="text-xs text-[#D9D2BE] font-medium">저장한 북마크</span>
+              <div className="text-2xl font-bold text-[#FDFBF4] mt-1 group-hover:scale-105 transition-transform">
                 {bookmarkCount}
-                <span className="text-sm font-normal text-slate-400 ml-1">개</span>
+                <span className="text-sm font-normal text-[#D9D2BE] ml-1">개</span>
               </div>
-              <span className="text-[11px] text-slate-400 mt-1 flex items-center gap-0.5 group-hover:text-cyan-400">
+              <span className="text-[11px] text-[#D4AF37] mt-1 flex items-center gap-0.5 group-hover:underline">
                 보러가기 <ChevronRight size={12} />
               </span>
-            </div>
-            <div className="p-3 rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
-              <Bookmark size={24} />
             </div>
           </Link>
         </div>
       </div>
 
       {/* 3. 나의 혼밥 일기장 (요리 인증 갤러리) */}
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-[#D4AF37]/30 bg-slate-900/70 shadow-2xl mb-8 relative">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-slate-800 mb-6">
+      <div className="p-6 sm:p-8 rounded-3xl border border-[#D4AF37]/40 bg-[#133624] shadow-2xl mb-8 relative">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 pb-4 border-b border-[#D4AF37]/20 mb-6">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-[#D4AF37]/15 text-[#D4AF37] border border-[#D4AF37]/30">
+            <div className="p-2.5 rounded-xl bg-[#0D2418] text-[#D4AF37] border border-[#D4AF37]/40 shadow-sm">
               <BookOpen size={22} />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-white">나의 혼밥 일기장</h2>
-                <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] font-semibold">
+                <h2 className="text-lg font-bold text-[#FDFBF4]">나의 혼밥 일기장</h2>
+                <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/30 font-semibold">
                   총 {myDiaries.length}편의 집밥 기록
                 </span>
               </div>
-              <p className="text-xs text-slate-400 mt-0.5">
+              <p className="text-xs text-[#D9D2BE] mt-0.5">
                 직접 요리한 사진과 솔직한 한줄평이 남겨진 나만의 요리 갤러리입니다.
               </p>
             </div>
@@ -444,31 +443,23 @@ export default function MyPage() {
               soundService.playButtonClick();
               router.push('/diary/write');
             }}
-            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-slate-950 text-xs font-extrabold shadow-md transition-all active:scale-98"
+            className="flex items-center gap-1.5 px-4 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] text-xs font-extrabold shadow-md transition-all active:scale-95"
           >
             <Camera size={14} />
             <span>새 요리 일기 쓰기 (+100 XP)</span>
           </button>
         </div>
 
-        {/* Gamification Rule Explainer Banner */}
-        <div className="mb-6 p-4 rounded-2xl bg-amber-500/10 border border-amber-500/25 flex items-start gap-3">
-          <span className="text-lg">💡</span>
-          <div className="text-xs text-slate-300 leading-relaxed">
-            <span className="font-bold text-amber-300">혼밥 일기 보상 규칙: </span>
-            요리 완성 사진과 <strong>10자 이상의 한줄평</strong>을 함께 작성하면 <strong>+100 XP</strong>가 즉시 지급됩니다. 
-            매일 연속해서 집밥을 먹고 일기를 남기면 <strong>연속 스트릭 보너스 XP</strong>까지 추가로 획득할 수 있습니다! 🔥
-          </div>
-        </div>
+
 
         {/* Diary Entries Grid */}
         {myDiaries.length === 0 ? (
-          <div className="p-10 text-center rounded-2xl border border-dashed border-slate-800 bg-slate-950/40 flex flex-col items-center justify-center gap-3">
-            <div className="w-14 h-14 rounded-full bg-slate-800/80 flex items-center justify-center text-slate-400">
+          <div className="p-10 text-center rounded-2xl border border-dashed border-[#D4AF37]/30 bg-[#0D2418]/60 flex flex-col items-center justify-center gap-3">
+            <div className="w-14 h-14 rounded-full bg-[#133624] flex items-center justify-center text-[#D4AF37] border border-[#D4AF37]/30">
               <Camera size={26} />
             </div>
-            <p className="text-sm font-semibold text-slate-300">아직 등록된 혼밥 일기가 없습니다.</p>
-            <p className="text-xs text-slate-500 max-w-sm">
+            <p className="text-sm font-semibold text-[#FDFBF4]">아직 등록된 혼밥 일기가 없습니다.</p>
+            <p className="text-xs text-[#D9D2BE] max-w-sm">
               오늘 직접 만든 집밥 사진과 꿀팁을 한줄평으로 남겨보세요. +100 XP를 받고 자취 요리사 레벨을 올릴 수 있습니다!
             </p>
             <button
@@ -476,7 +467,7 @@ export default function MyPage() {
                 soundService.playButtonClick();
                 router.push('/diary/write');
               }}
-              className="mt-2 px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-bold transition-all shadow"
+              className="mt-2 px-4 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] text-xs font-bold transition-all shadow"
             >
               첫 요리 일기 쓰기 (+100 XP)
             </button>
@@ -490,27 +481,27 @@ export default function MyPage() {
                   soundService.playButtonClick();
                   setSelectedDiary(diary);
                 }}
-                className="group rounded-2xl border border-slate-800/90 hover:border-amber-500/50 bg-slate-950/70 overflow-hidden shadow-lg hover:shadow-2xl transition-all cursor-pointer flex flex-col"
+                className="group rounded-2xl border border-[#D4AF37]/50 hover:border-[#D4AF37] bg-[#FDFBF4] overflow-hidden shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all cursor-pointer flex flex-col"
               >
                 {/* Photo Thumbnail with verified overlay */}
-                <div className="relative aspect-[4/3] w-full overflow-hidden bg-slate-900">
+                <div className="relative aspect-[4/3] w-full overflow-hidden bg-stone-900">
                   <img
                     src={diary.photoUrl}
                     alt={diary.recipeTitle}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-transparent to-transparent opacity-60" />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-70" />
 
                   {/* Top Badges */}
                   <div className="absolute top-2.5 left-2.5 flex items-center gap-1.5">
-                    <span className="px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-300 text-[10px] font-bold border border-emerald-500/30 backdrop-blur-sm shadow">
+                    <span className="px-2.5 py-0.5 rounded-full bg-[#1B4731]/90 text-[#FDFBF4] text-[10px] font-bold border border-[#D4AF37]/40 backdrop-blur-sm shadow">
                       ✓ 인증 완료
                     </span>
                   </div>
 
                   <div className="absolute top-2.5 right-2.5">
-                    <span className="px-2 py-0.5 rounded-full bg-black/70 text-amber-300 text-[11px] font-bold border border-amber-500/30 backdrop-blur-sm flex items-center gap-1 shadow">
-                      <Star size={12} className="fill-amber-400 text-amber-400" />
+                    <span className="px-2.5 py-0.5 rounded-full bg-black/70 text-[#D4AF37] text-[11px] font-bold border border-white/20 backdrop-blur-sm flex items-center gap-1 shadow">
+                      <Star size={12} className="fill-[#D4AF37] text-[#D4AF37]" />
                       <span>{diary.rating}.0</span>
                     </span>
                   </div>
@@ -523,51 +514,61 @@ export default function MyPage() {
                   </div>
                 </div>
 
-                {/* Content */}
-                <div className="p-4 flex flex-col flex-1 justify-between gap-3">
+                {/* Content: Editorial Cream White Body */}
+                <div className="p-4 flex flex-col flex-1 justify-between gap-3 bg-[#FDFBF4] text-[#1B4731]">
                   <div>
-                    <div className="flex items-center justify-between text-[11px] text-slate-500 mb-1.5">
+                    <div className="flex items-center justify-between text-[11px] text-[#8C762E] mb-1.5 font-medium">
                       <span className="flex items-center gap-1">
-                        <Calendar size={11} />
+                        <Calendar size={11} className="text-[#8C762E]" />
                         <span>{formatDate(diary.createdAt)}</span>
                       </span>
                       {diary.recipeId > 0 && (
-                        <span className="text-amber-400/80 text-[10px] hover:underline">
-                          레시피 연결됨
+                        <span className="text-[#1B4731] font-bold text-[10px] hover:underline">
+                          레시피 보기 →
                         </span>
                       )}
                     </div>
 
-                    <p className="text-xs text-slate-300 line-clamp-2 leading-relaxed italic bg-slate-900/50 p-2.5 rounded-xl border border-slate-800/60">
+                    <p className="text-xs text-[#1B4731] font-medium line-clamp-2 leading-relaxed italic bg-[#1B4731]/5 p-2.5 rounded-xl border border-[#D4AF37]/30">
                       &ldquo;{diary.comment}&rdquo;
                     </p>
 
                     {diary.privateDiary && (
-                      <div className="mt-2 flex items-center gap-1.5 text-[11px] text-amber-300/90 bg-amber-500/10 px-2.5 py-1 rounded-lg border border-amber-500/20">
-                        <Lock size={11} className="text-amber-400" />
+                      <div className="mt-2 flex items-center gap-1.5 text-[11px] text-[#1B4731] bg-[#D4AF37]/20 px-2.5 py-1 rounded-lg border border-[#D4AF37]/40 font-semibold">
+                        <Lock size={11} className="text-[#8C762E]" />
                         <span className="truncate">비밀 일기: {diary.privateDiary}</span>
                       </div>
                     )}
                   </div>
 
                   {/* Bottom Likes & Author */}
-                  <div className="flex items-center justify-between pt-2 border-t border-slate-800/80 text-xs">
-                    <span className="text-[11px] text-slate-400 font-medium">
-                      작성자: <span className="text-slate-200 font-semibold">{diary.authorName}</span>
+                  <div className="flex items-center justify-between pt-2 border-t border-[#D4AF37]/25 text-xs">
+                    <span className="text-[11px] text-stone-600 font-medium">
+                      작성자: <span className="text-[#1B4731] font-bold">{diary.authorName}</span>
                     </span>
 
-                    <button
-                      onClick={(e) => handleToggleLike(e, diary.id)}
-                      className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors border ${
-                        diary.isLiked
-                          ? 'bg-rose-500/20 text-rose-400 border-rose-500/30'
-                          : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-rose-400'
-                      }`}
-                      title="맛있어 보여요!"
-                    >
-                      <Heart size={12} className={diary.isLiked ? 'fill-rose-500 text-rose-500' : ''} />
-                      <span>{diary.likes}</span>
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={(e) => handleToggleLike(e, diary.id)}
+                        className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold transition-colors border ${
+                          diary.isLiked
+                            ? 'bg-rose-50 text-rose-600 border-rose-300'
+                            : 'bg-[#1B4731]/5 text-stone-700 border border-[#D4AF37]/30 hover:bg-rose-50 hover:text-rose-600'
+                        }`}
+                        title="맛있어 보여요!"
+                      >
+                        <Heart size={12} className={diary.isLiked ? 'fill-rose-500 text-rose-500' : ''} />
+                        <span>{diary.likes}</span>
+                      </button>
+
+                      <button
+                        onClick={(e) => handleDeleteDiary(e, diary.id)}
+                        className="p-1.5 rounded-full text-stone-400 hover:text-rose-600 hover:bg-rose-50 transition-colors border border-transparent hover:border-rose-200"
+                        title="일기 삭제"
+                      >
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -576,28 +577,28 @@ export default function MyPage() {
         )}
       </div>
 
-      {/* 3. 기피 식재료 & 알레르기 관리 (핵심 요청 반영) */}
-      <div className="glass-panel p-6 sm:p-8 rounded-3xl border border-slate-800 bg-slate-900/60 shadow-xl mb-8">
-        <div className="flex items-center gap-3 pb-4 border-b border-slate-800 mb-6">
+      {/* 4. 기피 식재료 & 알레르기 관리 */}
+      <div className="p-6 sm:p-8 rounded-3xl border border-[#D4AF37]/40 bg-[#133624] shadow-xl mb-8">
+        <div className="flex items-center gap-3 pb-4 border-b border-[#D4AF37]/20 mb-6">
           <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
             <ShieldAlert size={22} />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-white">기피 식재료 & 알레르기 관리</h2>
-            <p className="text-xs text-slate-400">
+            <h2 className="text-lg font-bold text-[#FDFBF4]">기피 식재료 & 알레르기 관리</h2>
+            <p className="text-xs text-[#D9D2BE]">
               선택한 식재료가 포함된 레시피를 열람할 때 주의 안내 배지를 표시해드립니다.
             </p>
           </div>
         </div>
 
         <div className="space-y-6">
-          {/* 3-1. 기피 식재료 */}
-          <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80">
+          {/* 4-1. 기피 식재료 */}
+          <div className="bg-[#0D2418] p-5 rounded-2xl border border-[#D4AF37]/30">
             <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold text-slate-200">
+              <span className="text-sm font-semibold text-[#FDFBF4]">
                 🚫 피하고 싶은 식재료 (싫어하는 재료)
               </span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-[#D9D2BE]/80">
                 선택됨: {settings.dietary.dislikedIngredients.length}개
               </span>
             </div>
@@ -605,7 +606,7 @@ export default function MyPage() {
             {/* Selected Tags */}
             <div className="flex flex-wrap gap-2 mb-4 min-h-[36px]">
               {settings.dietary.dislikedIngredients.length === 0 ? (
-                <span className="text-xs text-slate-500 py-1">선택된 기피 재료가 없습니다.</span>
+                <span className="text-xs text-[#D9D2BE]/70 py-1">선택된 기피 재료가 없습니다.</span>
               ) : (
                 settings.dietary.dislikedIngredients.map((tag) => (
                   <span
@@ -626,8 +627,8 @@ export default function MyPage() {
             </div>
 
             {/* Quick Popular Tags */}
-            <div className="pt-3 border-t border-slate-800/80">
-              <span className="text-[11px] text-slate-400 block mb-2 font-medium">
+            <div className="pt-3 border-t border-[#D4AF37]/20">
+              <span className="text-[11px] text-[#D9D2BE] block mb-2 font-medium">
                 자취생이 자주 피하는 재료 빠른 추가:
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -639,8 +640,8 @@ export default function MyPage() {
                       onClick={() => handleToggleDislike(tag)}
                       className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
                         isSelected
-                          ? 'bg-orange-500 text-white border-orange-500 shadow-sm'
-                          : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200'
+                          ? 'bg-[#D4AF37] text-[#1B4731] font-bold border-[#D4AF37] shadow-sm'
+                          : 'bg-[#133624] text-[#D9D2BE] border border-[#D4AF37]/30 hover:border-[#D4AF37] hover:text-[#FDFBF4]'
                       }`}
                     >
                       {isSelected ? `✓ ${tag}` : `+ ${tag}`}
@@ -657,11 +658,11 @@ export default function MyPage() {
                 value={newDislikeInput}
                 onChange={(e) => setNewDislikeInput(e.target.value)}
                 placeholder="직접 입력 (예: 샐러리, 브로콜리...)"
-                className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-orange-500 w-full sm:w-64"
+                className="bg-[#133624] border border-[#D4AF37]/40 rounded-xl px-3 py-2 text-xs text-[#FDFBF4] placeholder-[#D9D2BE]/60 outline-none focus:border-[#D4AF37] w-full sm:w-64"
               />
               <button
                 type="submit"
-                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1 border border-slate-700 transition-colors"
+                className="px-3.5 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] text-xs font-bold flex items-center gap-1 transition-colors"
               >
                 <Plus size={14} />
                 <span>추가</span>
@@ -669,14 +670,14 @@ export default function MyPage() {
             </form>
           </div>
 
-          {/* 3-2. 알레르기 식재료 */}
-          <div className="bg-slate-950/60 p-5 rounded-2xl border border-slate-800/80">
+          {/* 4-2. 알레르기 식재료 */}
+          <div className="bg-[#0D2418] p-5 rounded-2xl border border-[#D4AF37]/30">
             <div className="flex items-center justify-between mb-3">
               <span className="text-sm font-semibold text-rose-300 flex items-center gap-1.5">
                 <ShieldAlert size={15} />
                 식품 알레르기 유발 재료 (주의 필수)
               </span>
-              <span className="text-xs text-slate-500">
+              <span className="text-xs text-[#D9D2BE]/80">
                 등록됨: {settings.dietary.allergies.length}개
               </span>
             </div>
@@ -684,7 +685,7 @@ export default function MyPage() {
             {/* Selected Allergy Tags */}
             <div className="flex flex-wrap gap-2 mb-4 min-h-[36px]">
               {settings.dietary.allergies.length === 0 ? (
-                <span className="text-xs text-slate-500 py-1">등록된 알레르기 정보가 없습니다.</span>
+                <span className="text-xs text-[#D9D2BE]/70 py-1">등록된 알레르기 정보가 없습니다.</span>
               ) : (
                 settings.dietary.allergies.map((tag) => (
                   <span
@@ -705,8 +706,8 @@ export default function MyPage() {
             </div>
 
             {/* Quick Popular Allergy Tags */}
-            <div className="pt-3 border-t border-slate-800/80">
-              <span className="text-[11px] text-slate-400 block mb-2 font-medium">
+            <div className="pt-3 border-t border-[#D4AF37]/20">
+              <span className="text-[11px] text-[#D9D2BE] block mb-2 font-medium">
                 주요 알레르기 유발 식품 빠른 추가:
               </span>
               <div className="flex flex-wrap gap-1.5">
@@ -719,7 +720,7 @@ export default function MyPage() {
                       className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
                         isSelected
                           ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
-                          : 'bg-slate-900 text-slate-400 border-slate-800 hover:border-slate-700 hover:text-slate-200'
+                          : 'bg-[#133624] text-[#D9D2BE] border border-[#D4AF37]/30 hover:border-[#D4AF37] hover:text-[#FDFBF4]'
                       }`}
                     >
                       {isSelected ? `✓ ${tag}` : `+ ${tag}`}
@@ -736,11 +737,11 @@ export default function MyPage() {
                 value={newAllergyInput}
                 onChange={(e) => setNewAllergyInput(e.target.value)}
                 placeholder="직접 입력 (예: 참깨, 키위...)"
-                className="bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 placeholder-slate-500 outline-none focus:border-rose-500 w-full sm:w-64"
+                className="bg-[#133624] border border-[#D4AF37]/40 rounded-xl px-3 py-2 text-xs text-[#FDFBF4] placeholder-[#D9D2BE]/60 outline-none focus:border-rose-500 w-full sm:w-64"
               />
               <button
                 type="submit"
-                className="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold flex items-center gap-1 border border-slate-700 transition-colors"
+                className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
               >
                 <Plus size={14} />
                 <span>추가</span>
@@ -750,17 +751,17 @@ export default function MyPage() {
         </div>
       </div>
 
-      {/* 4. 최근 저장한 북마크 레시피 미리보기 */}
-      <div>
+      {/* 5. 최근 저장한 북마크 레시피 미리보기 */}
+      <div className="mb-8">
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-bold text-white flex items-center gap-2">
-            <Bookmark size={18} className="text-amber-400" />
+          <h2 className="text-lg font-bold text-[#FDFBF4] flex items-center gap-2">
+            <Bookmark size={18} className="text-[#D4AF37]" />
             최근 찜한 레시피
           </h2>
           <Link
             href="/bookmarks"
             onClick={() => soundService.playButtonClick()}
-            className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 transition-colors"
+            className="text-xs text-[#D4AF37] hover:underline flex items-center gap-1 transition-colors"
           >
             <span>전체 북마크 보기 ({bookmarkCount})</span>
             <ChevronRight size={14} />
@@ -768,12 +769,12 @@ export default function MyPage() {
         </div>
 
         {recentBookmarks.length === 0 ? (
-          <div className="glass-panel p-8 text-center rounded-2xl border border-slate-800 bg-slate-900/40">
-            <p className="text-xs text-slate-400 mb-3">저장한 북마크가 아직 없습니다.</p>
+          <div className="p-8 text-center rounded-2xl border border-[#D4AF37]/30 bg-[#133624]/60">
+            <p className="text-xs text-[#D9D2BE] mb-3">저장한 북마크가 아직 없습니다.</p>
             <Link
               href="/"
               onClick={() => soundService.playButtonClick()}
-              className="text-xs text-orange-400 hover:underline font-semibold"
+              className="text-xs text-[#D4AF37] hover:underline font-semibold"
             >
               쇼츠 둘러보고 레시피 찜하러 가기 →
             </Link>
@@ -787,7 +788,7 @@ export default function MyPage() {
                   soundService.playButtonClick();
                   router.push(`/recipe/${item.id}`);
                 }}
-                className="glass-panel p-3 rounded-2xl border border-slate-800 hover:border-amber-500/40 bg-slate-900/60 cursor-pointer group transition-all flex items-center gap-3"
+                className="p-3 rounded-2xl border border-[#D4AF37]/30 hover:border-[#D4AF37] bg-[#133624] cursor-pointer group transition-all flex items-center gap-3 shadow-md"
               >
                 <img
                   src={item.thumbnailUrl}
@@ -795,10 +796,10 @@ export default function MyPage() {
                   className="w-16 h-16 rounded-xl object-cover group-hover:scale-105 transition-transform shrink-0"
                 />
                 <div className="min-w-0 flex-1">
-                  <span className="text-[10px] text-amber-400 font-medium block truncate">
+                  <span className="text-[10px] text-[#D4AF37] font-medium block truncate">
                     {item.channelName}
                   </span>
-                  <h3 className="text-xs font-semibold text-slate-200 line-clamp-2 mt-0.5 group-hover:text-white">
+                  <h3 className="text-xs font-semibold text-[#FDFBF4] line-clamp-2 mt-0.5 group-hover:text-[#D4AF37]">
                     {item.title}
                   </h3>
                 </div>
@@ -808,31 +809,31 @@ export default function MyPage() {
         )}
       </div>
 
-      {/* 5. 선택된 일기 상세 모달 */}
+      {/* 6. 선택된 일기 상세 모달 */}
       {selectedDiary && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
           <div
             className="absolute inset-0 bg-black/85 backdrop-blur-md"
             onClick={() => setSelectedDiary(null)}
           />
-          <div className="relative z-10 w-full max-w-lg bg-slate-900 border border-slate-700/80 rounded-3xl overflow-hidden shadow-2xl p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto">
+          <div className="relative z-10 w-full max-w-lg bg-[#133624] border border-[#D4AF37]/50 rounded-3xl overflow-hidden shadow-2xl p-6 flex flex-col gap-4 max-h-[90vh] overflow-y-auto text-[#FDFBF4]">
             {/* Close */}
             <button
               onClick={() => setSelectedDiary(null)}
-              className="absolute top-4 right-4 p-2 rounded-full bg-black/60 text-slate-300 hover:text-white hover:bg-black/90 transition-all border border-slate-700"
+              className="absolute top-4 right-4 p-2 rounded-full bg-black/50 text-[#D9D2BE] hover:text-[#FDFBF4] hover:bg-black/80 transition-all border border-[#D4AF37]/30 z-20"
             >
               <X size={16} />
             </button>
 
             {/* Photo */}
-            <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-black border border-slate-800">
+            <div className="relative aspect-[16/10] w-full rounded-2xl overflow-hidden bg-[#0D2418] border border-[#D4AF37]/30">
               <img
                 src={selectedDiary.photoUrl}
                 alt={selectedDiary.recipeTitle}
                 className="w-full h-full object-cover"
               />
               <div className="absolute top-3 left-3">
-                <span className="px-2.5 py-1 rounded-full bg-emerald-950/90 text-emerald-300 text-xs font-bold border border-emerald-500/40 backdrop-blur-sm shadow">
+                <span className="px-2.5 py-1 rounded-full bg-[#133624]/90 text-[#FDFBF4] text-xs font-bold border border-[#D4AF37]/40 backdrop-blur-sm shadow">
                   ✓ 혼밥 요리 공식 인증
                 </span>
               </div>
@@ -848,74 +849,85 @@ export default function MyPage() {
                       size={15}
                       className={
                         s <= selectedDiary.rating
-                          ? 'fill-amber-400 text-amber-400'
-                          : 'fill-slate-800 text-slate-700'
+                          ? 'fill-[#D4AF37] text-[#D4AF37]'
+                          : 'fill-[#0D2418] text-[#D9D2BE]/30'
                       }
                     />
                   ))}
-                  <span className="text-xs font-bold text-amber-300 ml-1">
+                  <span className="text-xs font-bold text-[#D4AF37] ml-1">
                     {selectedDiary.rating}.0
                   </span>
                 </div>
-                <span className="text-xs text-slate-400 font-mono">
+                <span className="text-xs text-[#D9D2BE] font-mono">
                   {formatDate(selectedDiary.createdAt)}
                 </span>
               </div>
 
-              <h3 className="text-lg font-extrabold text-white mt-2">
+              <h3 className="text-lg font-extrabold text-[#FDFBF4] mt-2">
                 {selectedDiary.recipeTitle}
               </h3>
-              <p className="text-xs text-slate-400 mt-0.5">
-                요리사: <span className="text-amber-300 font-semibold">{selectedDiary.authorName}</span>
+              <p className="text-xs text-[#D9D2BE] mt-0.5">
+                요리사: <span className="text-[#D4AF37] font-semibold">{selectedDiary.authorName}</span>
               </p>
             </div>
 
             {/* Comment Body (Public) */}
             <div className="flex flex-col gap-1.5">
-              <span className="text-[11px] font-semibold text-slate-400 flex items-center gap-1">
+              <span className="text-[11px] font-semibold text-[#D9D2BE] flex items-center gap-1">
                 <span>💡 한줄평 & 꿀팁</span>
-                <span className="text-[10px] text-slate-500">(레시피 공개용)</span>
+                <span className="text-[10px] text-[#D9D2BE]/70">(레시피 공개용)</span>
               </span>
-              <div className="bg-slate-950/80 p-3.5 rounded-2xl border border-slate-800 text-slate-200 text-xs leading-relaxed italic">
+              <div className="bg-[#0D2418] p-3.5 rounded-2xl border border-[#D4AF37]/30 text-[#FDFBF4] text-xs leading-relaxed italic">
                 &ldquo;{selectedDiary.comment}&rdquo;
               </div>
             </div>
 
             {/* Private Diary (if present) */}
             {selectedDiary.privateDiary && (
-              <div className="flex flex-col gap-2 p-4 rounded-2xl bg-gradient-to-br from-amber-950/20 via-slate-950/90 to-slate-900 border border-amber-500/35 shadow-inner">
+              <div className="flex flex-col gap-2 p-4 rounded-2xl bg-[#0D2418] border border-[#D4AF37]/40 shadow-inner">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-bold text-amber-300 flex items-center gap-1.5">
-                    <BookOpen size={13} className="text-amber-400" />
+                  <span className="text-xs font-bold text-[#D4AF37] flex items-center gap-1.5">
+                    <BookOpen size={13} className="text-[#D4AF37]" />
                     <span>나만의 비밀 요리 일기장</span>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-950/90 text-emerald-300 border border-emerald-500/30 font-semibold">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#133624] text-[#FDFBF4] border border-[#D4AF37]/30 font-semibold">
                       나만 보기 🔒
                     </span>
                   </span>
-                  <span className="text-[10px] text-slate-400 font-mono">비공개</span>
+                  <span className="text-[10px] text-[#D9D2BE] font-mono">비공개</span>
                 </div>
-                <p className="text-xs text-[#FDFBF4] leading-relaxed whitespace-pre-wrap font-sans bg-slate-950/60 p-3 rounded-xl border border-slate-800/80">
+                <p className="text-xs text-[#FDFBF4] leading-relaxed whitespace-pre-wrap font-sans bg-[#133624] p-3 rounded-xl border border-[#D4AF37]/20">
                   {selectedDiary.privateDiary}
                 </p>
               </div>
             )}
 
             {/* Actions */}
-            <div className="flex items-center justify-between pt-2 border-t border-slate-800">
-              <button
-                onClick={(e) => handleToggleLike(e, selectedDiary.id)}
-                className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all border ${
-                  selectedDiary.isLiked
-                    ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
-                    : 'bg-slate-800 text-slate-300 border-slate-700 hover:text-white'
-                }`}
-              >
-                <Heart
-                  size={14}
-                  className={selectedDiary.isLiked ? 'fill-rose-500 text-rose-500' : ''}
-                />
-                <span>맛있어 보여요 ({selectedDiary.likes})</span>
-              </button>
+            <div className="flex items-center justify-between pt-2 border-t border-[#D4AF37]/20 flex-wrap gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={(e) => handleToggleLike(e, selectedDiary.id)}
+                  className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all border ${
+                    selectedDiary.isLiked
+                      ? 'bg-rose-500/20 text-rose-300 border-rose-500/40'
+                      : 'bg-[#0D2418] text-[#D9D2BE] border border-[#D4AF37]/30 hover:text-[#FDFBF4]'
+                  }`}
+                >
+                  <Heart
+                    size={14}
+                    className={selectedDiary.isLiked ? 'fill-rose-500 text-rose-500' : ''}
+                  />
+                  <span>맛있어 보여요 ({selectedDiary.likes})</span>
+                </button>
+
+                <button
+                  onClick={(e) => handleDeleteDiary(e, selectedDiary.id)}
+                  className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 text-rose-300 border border-rose-500/40 text-xs font-semibold transition-all"
+                  title="일기 삭제"
+                >
+                  <Trash2 size={13} />
+                  <span>삭제</span>
+                </button>
+              </div>
 
               {selectedDiary.recipeId > 0 && (
                 <button
@@ -923,7 +935,7 @@ export default function MyPage() {
                     soundService.playButtonClick();
                     router.push(`/recipe/${selectedDiary.recipeId}`);
                   }}
-                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/40 text-xs text-amber-300 hover:text-white font-bold transition-all shadow-sm active:scale-95"
+                  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] text-xs font-bold transition-all shadow-md active:scale-95"
                 >
                   <span>📺 원본 숏츠/레시피 보기</span>
                   <ExternalLink size={13} />
@@ -934,31 +946,31 @@ export default function MyPage() {
         </div>
       )}
 
-      {/* 6. 혼밥 요리사 20단계 레벨 로드맵 모달 */}
+      {/* 7. 혼밥 요리사 20단계 레벨 로드맵 모달 */}
       {isLevelModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
           <div
             className="absolute inset-0 bg-black/85 backdrop-blur-md"
             onClick={() => setIsLevelModalOpen(false)}
           />
-          <div className="relative z-10 w-full max-w-2xl bg-slate-900 border border-amber-500/40 rounded-3xl overflow-hidden shadow-2xl p-6 sm:p-8 flex flex-col gap-5 max-h-[90vh]">
+          <div className="relative z-10 w-full max-w-2xl bg-[#133624] border border-[#D4AF37]/50 rounded-3xl overflow-hidden shadow-2xl p-6 sm:p-8 flex flex-col gap-5 max-h-[90vh] text-[#FDFBF4]">
             {/* Header */}
             <div className="flex items-start justify-between">
               <div>
-                <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                <span className="text-xs font-bold text-[#D4AF37] flex items-center gap-1.5">
                   <Award size={14} />
                   <span>자취생 명예의 전당</span>
                 </span>
-                <h2 className="text-xl sm:text-2xl font-extrabold text-white mt-1">
+                <h2 className="text-xl sm:text-2xl font-extrabold text-[#FDFBF4] mt-1">
                   혼밥 요리사 20단계 레벨 로드맵 👑
                 </h2>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                <p className="text-xs text-[#D9D2BE] mt-1 leading-relaxed">
                   요리 일기 작성(+100 XP)과 매일 첫 접속 보너스(+15 XP)로 차근차근 성장하세요! Lv.18은 <strong>3개월</strong> 꾸준한 집밥 완주, Lv.20은 <strong>1년(365일)</strong> 완주 전설의 경지입니다.
                 </p>
               </div>
               <button
                 onClick={() => setIsLevelModalOpen(false)}
-                className="p-2 rounded-full bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-colors"
+                className="p-2 rounded-full bg-black/50 text-[#D9D2BE] hover:text-[#FDFBF4] hover:bg-black/80 border border-[#D4AF37]/30 transition-colors"
               >
                 <X size={16} />
               </button>
@@ -975,23 +987,23 @@ export default function MyPage() {
                     key={tier.level}
                     className={`p-3.5 rounded-2xl border transition-all flex items-center justify-between gap-4 ${
                       isCurrent
-                        ? 'bg-amber-500/15 border-amber-400 shadow-md ring-1 ring-amber-400/40'
+                        ? 'bg-[#D4AF37]/20 border-[#D4AF37] shadow-md ring-1 ring-[#D4AF37]/40 text-[#FDFBF4]'
                         : isReached
-                        ? 'bg-slate-950/70 border-slate-800'
-                        : 'bg-slate-950/40 border-slate-800/50 opacity-75'
+                        ? 'bg-[#0D2418] border border-[#D4AF37]/30 text-[#FDFBF4]'
+                        : 'bg-[#0D2418]/60 border border-[#D4AF37]/15 opacity-75 text-[#D9D2BE]'
                     }`}
                   >
                     <div className="flex items-center gap-3.5 min-w-0">
-                      <div className="w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-xl shrink-0 shadow">
+                      <div className="w-10 h-10 rounded-xl bg-[#133624] border border-[#D4AF37]/30 flex items-center justify-center text-xl shrink-0 shadow">
                         {tier.badgeEmoji}
                       </div>
                       <div className="min-w-0">
                         <div className="flex items-center gap-2 flex-wrap">
-                          <span className="text-xs font-bold text-white">
+                          <span className="text-xs font-bold text-[#FDFBF4]">
                             Lv.{tier.level} {tier.title}
                           </span>
                           {isCurrent && (
-                            <span className="px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 text-[10px] font-black">
+                            <span className="px-2 py-0.5 rounded-full bg-[#D4AF37] text-[#1B4731] text-[10px] font-black shadow-sm">
                               현재 내 등급
                             </span>
                           )}
@@ -1001,22 +1013,22 @@ export default function MyPage() {
                             </span>
                           )}
                           {tier.level === 20 && (
-                            <span className="px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30 text-[10px] font-semibold">
+                            <span className="px-2 py-0.5 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] border border-[#D4AF37]/40 text-[10px] font-semibold">
                               1년 완주 전설 👑
                             </span>
                           )}
                         </div>
-                        <p className="text-[11px] text-slate-400 truncate mt-0.5">
+                        <p className="text-[11px] text-[#D9D2BE] truncate mt-0.5">
                           {tier.description}
                         </p>
                       </div>
                     </div>
 
                     <div className="text-right shrink-0">
-                      <span className="text-xs font-mono font-bold text-amber-300 block">
+                      <span className="text-xs font-mono font-bold text-[#D4AF37] block">
                         {tier.minXp.toLocaleString()} XP ~
                       </span>
-                      <span className="text-[10px] text-slate-500">
+                      <span className="text-[10px] text-[#D9D2BE]/70">
                         {tier.level <= 4 ? '초급' : tier.level <= 10 ? '1달 코스' : tier.level <= 17 ? '2~3달 코스' : tier.level === 18 ? '3개월' : tier.level === 19 ? '마스터' : '1년 완주'}
                       </span>
                     </div>
