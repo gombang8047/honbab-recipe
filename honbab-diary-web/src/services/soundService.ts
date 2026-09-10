@@ -225,6 +225,16 @@ class SoundService {
     osc.stop(ctx.currentTime + 0.05);
   }
 
+  // 성공 / 축하 효과음 (멜로디 재생)
+  playPaymentSuccess() {
+    this.playMelody();
+  }
+
+  // 좋아요 하트 팝 효과음
+  playHeartPop() {
+    this.playButtonClick();
+  }
+
   // 타이머 째깍 소리
   playTick() {
     const settings = settingsService.getSettings().sound;

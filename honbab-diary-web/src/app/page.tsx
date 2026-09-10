@@ -156,7 +156,7 @@ export default function HomePage() {
           loadMore();
         }
       },
-      { rootMargin: '300px', threshold: 0.1 }
+      { rootMargin: '800px', threshold: 0 }
     );
 
     observer.observe(target);

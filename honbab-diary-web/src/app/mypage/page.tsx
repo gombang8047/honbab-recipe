@@ -194,12 +194,12 @@ export default function MyPage() {
     }
   };
 
-  const formatDate = (isoStr: string) => {
+  const formatDate = (val: string | number) => {
     try {
-      const d = new Date(isoStr);
+      const d = new Date(val);
       return `${d.getFullYear()}.${String(d.getMonth() + 1).padStart(2, '0')}.${String(d.getDate()).padStart(2, '0')}`;
     } catch {
-      return isoStr;
+      return String(val);
     }
   };
 
@@ -953,7 +953,7 @@ export default function MyPage() {
                   혼밥 요리사 20단계 레벨 로드맵 👑
                 </h2>
                 <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Lv.18은 <strong>3개월(약 90일)</strong> 꾸준한 집밥 완주, Lv.20은 <strong>1년(365일)</strong> 완주 전설의 경지입니다!
+                  요리 일기 작성(+100 XP)과 매일 첫 접속 보너스(+15 XP)로 차근차근 성장하세요! Lv.18은 <strong>3개월</strong> 꾸준한 집밥 완주, Lv.20은 <strong>1년(365일)</strong> 완주 전설의 경지입니다.
                 </p>
               </div>
               <button

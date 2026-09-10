@@ -21,6 +21,7 @@ import { cartApi } from '@/services/cartApi';
 import { cartService } from '@/services/cartService';
 import { authApi } from '@/services/authApi';
 import { soundService } from '@/services/soundService';
+import { diaryService } from '@/services/diaryService';
 
 interface HeaderProps {
   cartCount?: number;
@@ -29,10 +30,11 @@ interface HeaderProps {
 export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
   const router = useRouter();
   const pathname = usePathname();
-  const [count, setCount] = useState<number>(propCartCount ?? 3);
+  const [count, setCount] = useState<number>(propCartCount ?? 0);
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [nickname, setNickname] = useState<string>('카카오 사용자');
   const [cookingLevel, setCookingLevel] = useState<string>('Lv.3');
+  const [levelTitle, setLevelTitle] = useState<string>('햇반 탈출러');
   const [mounted, setMounted] = useState<boolean>(false);
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
@@ -75,12 +77,15 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
       setNickname('자취 미식가');
     }
 
-    const storedLevel = localStorage.getItem('honbab_user_level') || 'Lv.3';
-    setCookingLevel(storedLevel);
+    const levelInfo = diaryService.getUserLevelInfo();
+    setCookingLevel(`Lv.${levelInfo.level}`);
+    setLevelTitle(levelInfo.title);
   }, []);
 
   useEffect(() => {
     setMounted(true);
+    // 당일 첫 접속 시 백그라운드에서 조용히 접속 경험치 부여 (알림 없이 자동 반영)
+    diaryService.checkAndAwardLoginXp();
     syncAuthState();
 
     const handleAuthChange = () => {
@@ -89,6 +94,7 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
 
     window.addEventListener('auth-change', handleAuthChange);
     window.addEventListener('storage', handleAuthChange);
+    window.addEventListener('diary-updated', handleAuthChange);
 
     // Fetch Cart from cartService
     setCount(cartService.getCartCount());
@@ -106,6 +112,7 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
     return () => {
       window.removeEventListener('auth-change', handleAuthChange);
       window.removeEventListener('storage', handleAuthChange);
+      window.removeEventListener('diary-updated', handleAuthChange);
       window.removeEventListener('cart-changed', handleCartChange);
     };
   }, [syncAuthState]);
@@ -234,17 +241,18 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
           href="/cart"
           onClick={() => soundService.playButtonClick()}
           className="h-10 w-10 flex items-center justify-center relative rounded-full bg-[#1B4731] hover:bg-[#24583E] text-[#D4AF37] border border-[#D4AF37]/30 hover:border-[#D4AF37] transition-all shadow-sm shrink-0"
+          suppressHydrationWarning
         >
           <ShoppingCart size={19} />
-          {count > 0 && (
-            <span className="absolute -top-1 -right-1 bg-[#D4AF37] text-[#1B4731] font-bold text-[11px] w-5 h-5 rounded-full flex items-center justify-center border border-[#F3E5AB] shadow-sm animate-pulse">
+          {mounted && count > 0 && (
+            <span className="absolute -top-1 -right-1 bg-[#D4AF37] text-[#1B4731] font-bold text-[11px] w-5 h-5 rounded-full flex items-center justify-center border border-[#F3E5AB] shadow-sm animate-pulse" suppressHydrationWarning>
               {count}
             </span>
           )}
         </Link>
 
         {/* Profile Dropdown Container */}
-        <div className="relative" ref={menuRef}>
+        <div className="relative" ref={menuRef} suppressHydrationWarning>
           {mounted && isLoggedIn ? (
             <button
               onClick={() => {
@@ -299,7 +307,7 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
                   </span>
                   <span className="text-[11px] text-[#D4AF37] flex items-center gap-1 font-medium mt-0.5">
                     <Sparkles size={11} className="text-[#D4AF37]" />
-                    <span>{mounted && isLoggedIn ? '자취 요리사' : '로그인이 필요합니다'}</span>
+                    <span>{mounted && isLoggedIn ? `${cookingLevel} ${levelTitle}` : '로그인이 필요합니다'}</span>
                   </span>
                 </div>
                 {mounted && isLoggedIn && (
