@@ -32,14 +32,13 @@ export default function HomePage() {
   const totalCountRef = useRef<number>(530);
 
   // 화면 폭에 따른 현재 그리드 열(column) 개수 감지
-  // Tailwind 기준: lg(>=1024px) -> 4열, md(>=768px) -> 3열, sm(>=640px) -> 2열, 모바일 -> 1열
+  // Tailwind 기준: lg(>=1024px) -> 4열, md(>=768px) -> 3열, 모바일/앱 -> 2열
   const getResponsiveColumnCount = useCallback((): number => {
     if (typeof window === 'undefined') return 4;
     const width = window.innerWidth;
     if (width >= 1024) return 4;
     if (width >= 768) return 3;
-    if (width >= 640) return 2;
-    return 1;
+    return 2; // 앱/모바일에서는 한 줄에 2개씩
   }, []);
 
   useEffect(() => {
@@ -179,18 +178,24 @@ export default function HomePage() {
   const handleConvertAi = async (shorts: ShortsItem) => {
     setConvertingShorts(shorts);
     setIsNavigatingToRecipe(false);
+
+    // 사용자가 선택한 실제 쇼츠 영상 ID를 세션스토리지에 저장하여 레시피 상세 페이지에 100% 동일 영상 전달
+    if (typeof window !== 'undefined' && shorts.youtubeId) {
+      sessionStorage.setItem('current_recipe_youtube_id', shorts.youtubeId);
+    }
+
     try {
       const recipe = await recipeApi.convertToRecipe(shorts.id);
       setIsNavigatingToRecipe(true);
-      router.prefetch(`/recipe/${recipe.id}`);
-      router.push(`/recipe/${recipe.id}`);
-      // 모달을 바로 닫지 않고 새 페이지가 렌더링될 때까지 대기화면을 유지하여
-      // 메인화면이 깜빡이는 렉 현상을 방지합니다.
+      const targetUrl = `/recipe/${recipe.id}?youtubeId=${encodeURIComponent(shorts.youtubeId)}`;
+      router.prefetch(targetUrl);
+      router.push(targetUrl);
     } catch (err) {
       console.error('레시피 변환 실패, 기본 레시피로 이동:', err);
       setIsNavigatingToRecipe(true);
-      router.prefetch('/recipe/1');
-      router.push('/recipe/1');
+      const targetUrl = `/recipe/1?youtubeId=${encodeURIComponent(shorts.youtubeId)}`;
+      router.prefetch(targetUrl);
+      router.push(targetUrl);
     }
   };
 
@@ -199,28 +204,31 @@ export default function HomePage() {
   };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8">
-      {/* Hero Banner: Luxury Editorial 60-30-10 Layout */}
-      <div className="relative rounded-3xl p-6 sm:p-8 lg:p-10 text-[#FDFBF4] shadow-2xl border bg-[#133624] border-[#D4AF37]/40 overflow-hidden">
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+    <div className="max-w-7xl mx-auto px-3.5 sm:px-6 lg:px-8 py-3 sm:py-8 flex flex-col gap-4 sm:gap-8">
+      {/* Hero Banner: Luxury Editorial 60-30-10 Layout (PC 웹에서만 표시, 앱에서는 즉시 쇼츠 피드 노출) */}
+      <div className="hidden md:block relative rounded-2xl sm:rounded-3xl p-4 sm:p-8 lg:p-10 text-[#FDFBF4] shadow-2xl border bg-[#133624] border-[#D4AF37]/40 overflow-hidden">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-center">
           {/* Left Column (Main Story) */}
-          <div className="lg:col-span-7 flex flex-col gap-4">
-            <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full w-fit text-xs font-bold bg-[#1B4731] text-[#D4AF37] border border-[#D4AF37]/40 tracking-wider shadow-sm">
+          <div className="lg:col-span-7 flex flex-col gap-2.5 sm:gap-4">
+            {/* 상단 뱃지: PC에서만 표시 */}
+            <div className="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full w-fit text-xs font-bold bg-[#1B4731] text-[#D4AF37] border border-[#D4AF37]/40 tracking-wider shadow-sm">
               <Sparkles size={13} className="text-[#D4AF37]" />
               <span>AI 1인분 요리 연구소 • CUISINE STUDIO</span>
             </div>
 
-            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-[1.2] text-[#FDFBF4]">
+            {/* 메인 타이틀: 앱에서는 이것만 깔끔하게 노출 */}
+            <h1 className="text-xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight leading-snug text-[#FDFBF4]">
               쇼츠 보고 3분 만에,<br />
               <span className="text-[#D4AF37]">근사한 1인분 식탁</span>을 완성하세요
             </h1>
 
-            <p className="text-[#E7E2D3] text-sm sm:text-base max-w-xl leading-relaxed">
+            {/* 부가 설명: PC에서만 표시 */}
+            <p className="hidden md:block text-[#E7E2D3] text-sm sm:text-base max-w-xl leading-relaxed">
               유튜브 60초 요리 영상에서 AI가 1인분 분량과 조리 순서를 즉시 추출합니다. 필요한 식재료는 쿠팡과 마켓컬리 최저가로 한눈에 비교해 보세요.
             </p>
 
-            {/* Feature Pills */}
-            <div className="flex flex-wrap gap-2 pt-2">
+            {/* Feature Pills: PC에서만 표시 */}
+            <div className="hidden md:flex flex-wrap gap-2 pt-2">
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#1B4731] text-xs text-[#FDFBF4] border border-[#D4AF37]/30 shadow-sm font-medium">
                 <Clock size={12} className="text-[#D4AF37]" />
                 <span>3분 쇼츠 요약</span>
@@ -236,8 +244,8 @@ export default function HomePage() {
             </div>
           </div>
 
-          {/* Right Column: Spotlight Showcase Card (Sub Color: Cream White #FDFBF4 - 30%) */}
-          <div className="lg:col-span-5">
+          {/* Right Column: Spotlight Showcase Card (PC에서만 표시) */}
+          <div className="hidden lg:block lg:col-span-5">
             <div className="bg-[#FDFBF4] rounded-2xl p-5 sm:p-6 border border-[#D4AF37]/50 shadow-2xl flex flex-col gap-4 text-[#1B4731]">
               <div className="flex items-center justify-between border-b border-[#D4AF37]/25 pb-3">
                 <div className="flex items-center gap-2 text-xs font-bold text-[#1B4731]">
@@ -313,9 +321,9 @@ export default function HomePage() {
       )}
 
       {/* Feed Control Bar: Sort Options & Refresh Button */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#D4AF37]/30 transition-colors">
-        {/* Left side: Section Title / Info */}
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 pb-2 border-b border-[#D4AF37]/30 transition-colors">
+        {/* Left side: Section Title / Info (앱/모바일에서는 숨김 처리) */}
+        <div className="hidden sm:flex items-center gap-2">
           <Sparkles size={16} className="text-[#D4AF37]" />
           <span className="text-sm font-bold text-[#FDFBF4] tracking-tight">요리 쇼츠 레시피</span>
           <span className="text-xs text-[#E7E2D3] font-medium hidden sm:inline">
@@ -324,12 +332,12 @@ export default function HomePage() {
         </div>
 
         {/* Right side: Sort Controls & Refresh Button */}
-        <div className="flex items-center gap-2.5 self-end sm:self-auto flex-wrap">
-          {/* Sort Switcher (추천순 / 인기순 / 최신순) */}
-          <div className="flex items-center bg-[#133624] border border-[#D4AF37]/40 p-1 rounded-2xl shadow-md">
+        <div className="flex items-center justify-between w-full sm:w-auto gap-2 sm:gap-2.5">
+          {/* Sort Switcher (추천순 / 인기순 / 최신순 - 왼쪽 배치) */}
+          <div className="h-9 sm:h-10 flex items-center bg-[#133624] border border-[#D4AF37]/40 p-1 rounded-2xl shadow-md shrink-0">
             <button
               onClick={() => setSortMode('RANDOM')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`h-full px-2.5 sm:px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 ${
                 sortMode === 'RANDOM'
                   ? 'bg-[#D4AF37] text-[#1B4731] border border-[#F3E5AB] shadow-md'
                   : 'text-[#E7E2D3] hover:text-[#D4AF37]'
@@ -342,7 +350,7 @@ export default function HomePage() {
 
             <button
               onClick={() => setSortMode('TRENDING')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`h-full px-2.5 sm:px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 ${
                 sortMode === 'TRENDING'
                   ? 'bg-[#D4AF37] text-[#1B4731] border border-[#F3E5AB] shadow-md'
                   : 'text-[#E7E2D3] hover:text-[#D4AF37]'
@@ -355,7 +363,7 @@ export default function HomePage() {
 
             <button
               onClick={() => setSortMode('LATEST')}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+              className={`h-full px-2.5 sm:px-3 rounded-xl text-xs font-bold transition-all flex items-center justify-center gap-1 sm:gap-1.5 ${
                 sortMode === 'LATEST'
                   ? 'bg-[#D4AF37] text-[#1B4731] border border-[#F3E5AB] shadow-md'
                   : 'text-[#E7E2D3] hover:text-[#D4AF37]'
@@ -367,11 +375,11 @@ export default function HomePage() {
             </button>
           </div>
 
-          {/* Refresh Button */}
+          {/* Refresh Button (오른쪽 끝 배치, 높이 일치) */}
           <button
             onClick={handleRefresh}
             disabled={initialLoading || isRefreshing}
-            className={`px-3.5 py-2 rounded-2xl border transition-all text-xs font-bold flex items-center gap-1.5 shadow-md active:scale-95 bg-[#133624] border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#1B4731] ${
+            className={`h-9 sm:h-10 px-3 sm:px-3.5 rounded-2xl border transition-all text-xs font-bold flex items-center justify-center gap-1.5 shadow-md active:scale-95 bg-[#133624] border-[#D4AF37]/40 text-[#D4AF37] hover:bg-[#1B4731] shrink-0 ${
               isRefreshing ? 'opacity-70 cursor-not-allowed' : ''
             }`}
             title="새로운 요리 쇼츠 불러오기"
@@ -387,7 +395,7 @@ export default function HomePage() {
 
       {/* Shorts Cards Grid */}
       {initialLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
           {Array.from({ length: gridCols * 2 }).map((_, n) => (
             <div key={n} className="bg-[#133624]/60 border border-[#D4AF37]/20 rounded-2xl aspect-[9/16] animate-pulse" />
           ))}
@@ -416,7 +424,7 @@ export default function HomePage() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-6">
             {shortsList.map((shorts) => (
               <ShortsCard
                 key={shorts.id}

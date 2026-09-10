@@ -244,78 +244,28 @@ const USER_XP_KEY = 'honbab_user_xp';
 const LAST_LOGIN_DATE_KEY = 'honbab_last_login_xp_date';
 const LOGIN_STREAK_KEY = 'honbab_login_streak';
 
-// 다른 자취생들이 실제로 작성한 듯한 풍성한 초기 커뮤니티 샘플 일기
-const INITIAL_COMMUNITY_DIARIES: CookingDiaryEntry[] = [
-  {
-    id: 'sample_diary_1',
-    recipeId: 1,
-    recipeTitle: '🍳 5분컷 초간단 계란볶음밥',
-    photoUrl: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=600&q=80',
-    rating: 5,
-    comment: '파기름 낼 때 대파 넉넉하게 볶고 굴소스 1큰술 넣으니 중국집 볶음밥보다 훨씬 맛있어요! 설거지도 팬 하나로 끝났습니다.',
-    userNickname: '신촌자취러',
-    authorName: '신촌자취러',
-    userLevel: 3,
-    userLevelTitle: '햇반 탈출러',
-    createdAt: Date.now() - 1000 * 60 * 60 * 3, // 3시간 전
-    likes: 14,
-    likedByMe: false,
-    isLiked: false,
-    isMyEntry: false,
-    streakDay: 4
-  },
-  {
-    id: 'sample_diary_2',
-    recipeId: 1,
-    recipeTitle: '🍳 5분컷 초간단 계란볶음밥',
-    photoUrl: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?w=600&q=80',
-    rating: 5,
-    comment: '냉장고에 남아있던 스팸 얇게 깍둑썰기해서 같이 볶아줬더니 단짠단짠 대박입니다. 자취생 필수 필살기 레시피 인정!',
-    userNickname: '퇴근후요리왕',
-    authorName: '퇴근후요리왕',
-    userLevel: 4,
-    userLevelTitle: '냉장고 파먹기 고수',
-    createdAt: Date.now() - 1000 * 60 * 60 * 18, // 18시간 전
-    likes: 27,
-    likedByMe: true,
-    isLiked: true,
-    isMyEntry: false,
-    streakDay: 6
-  },
-  {
-    id: 'sample_diary_3',
-    recipeId: 2,
-    recipeTitle: '🍝 원팬 마늘 오일 파스타',
-    photoUrl: 'https://images.unsplash.com/photo-1621996346565-e3d5d6281541?w=600&q=80',
-    rating: 4,
-    comment: '면수 버리지 않고 자작하게 끓여내니까 전분기 때문에 소스가 면에 싹 감겨요. 마늘 편 썰어서 노릇하게 익히는 게 핵심!',
-    userNickname: '자취미식가',
-    authorName: '자취미식가',
-    userLevel: 2,
-    userLevelTitle: '라면 물조절 장인',
-    createdAt: Date.now() - 1000 * 60 * 60 * 28,
-    likes: 9,
-    likedByMe: false,
-    isLiked: false,
-    isMyEntry: false,
-    streakDay: 2
-  }
-];
+// 초기 커뮤니티 목데이터 제거 (사용자가 직접 작성한 일기만 유지)
+const INITIAL_COMMUNITY_DIARIES: CookingDiaryEntry[] = [];
 
 /**
- * 저장된 전체 요리 일기 목록 조회 (로컬 + 기본 커뮤니티 샘플)
+ * 저장된 전체 요리 일기 목록 조회 (순수 사용자 작성 데이터만 조회)
  */
 const getDiaries = (): CookingDiaryEntry[] => {
-  if (typeof window === 'undefined') return INITIAL_COMMUNITY_DIARIES;
+  if (typeof window === 'undefined') return [];
   try {
     const saved = localStorage.getItem(DIARY_STORAGE_KEY);
     if (!saved) {
-      localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(INITIAL_COMMUNITY_DIARIES));
-      return INITIAL_COMMUNITY_DIARIES;
+      return [];
     }
-    return JSON.parse(saved);
+    const list: CookingDiaryEntry[] = JSON.parse(saved);
+    // 기존에 저장되어 있던 샘플 목데이터(sample_diary_*)가 있다면 영구 필터링 삭제
+    const cleanList = Array.isArray(list) ? list.filter((d) => !d.id.startsWith('sample_diary_')) : [];
+    if (cleanList.length !== list.length) {
+      localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(cleanList));
+    }
+    return cleanList;
   } catch {
-    return INITIAL_COMMUNITY_DIARIES;
+    return [];
   }
 };
 

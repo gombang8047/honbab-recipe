@@ -238,43 +238,52 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
         {/* =========================================================================
             좌측: 쇼츠 영상 플레이어 (PC에서는 전체 화면 높이에 맞춰 고정되어 움직이지 않음)
            ========================================================================= */}
-        {recipe.shortsYoutubeId && (
-          <div className="lg:col-span-5 xl:col-span-4 lg:h-full lg:flex lg:flex-col lg:justify-start lg:min-h-0">
-            <div className="p-4 sm:p-5 rounded-3xl flex flex-col gap-3.5 border border-[#D4AF37]/30 bg-[#133624] shadow-2xl">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-[#FDFBF4] flex items-center gap-2">
-                  <Youtube size={18} className="text-[#D4AF37]" />
-                  <span>원본 쇼츠 영상</span>
-                </h2>
-                <a
-                  href={`https://www.youtube.com/shorts/${recipe.shortsYoutubeId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-[#D4AF37] hover:underline flex items-center gap-1 transition-colors font-medium"
-                >
-                  <span>유튜브 열기</span>
-                  <ExternalLink size={12} />
-                </a>
-              </div>
+        {recipe.shortsYoutubeId && (() => {
+          const rawId = recipe.shortsYoutubeId;
+          const cleanId = (!rawId || rawId.startsWith('mock_'))
+            ? 'c7pQG-x5D68'
+            : (rawId.match(/(?:shorts\/|v=|youtu\.be\/|embed\/)?([a-zA-Z0-9_-]{11})/)?.[1] || rawId);
+          const origin = typeof window !== 'undefined' ? window.location.origin : '';
+          const embedUrl = `https://www.youtube.com/embed/${encodeURIComponent(cleanId)}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
 
-              {/* 9:16 Shorts Player - Fits comfortably within viewport */}
-              <div className="relative w-full max-w-[340px] xl:max-w-[360px] mx-auto aspect-[9/16] max-h-[calc(100vh-230px)] rounded-2xl overflow-hidden bg-black shadow-2xl border border-[#D4AF37]/25">
-                <iframe
-                  src={`https://www.youtube.com/embed/${recipe.shortsYoutubeId}?rel=0&playsinline=1`}
-                  title="원본 쇼츠 영상"
-                  className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
+          return (
+            <div className="lg:col-span-5 xl:col-span-4 lg:h-full lg:flex lg:flex-col lg:justify-start lg:min-h-0">
+              <div className="p-4 sm:p-5 rounded-3xl flex flex-col gap-3.5 border border-[#D4AF37]/30 bg-[#133624] shadow-2xl">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-bold text-[#FDFBF4] flex items-center gap-2">
+                    <Youtube size={18} className="text-[#D4AF37]" />
+                    <span>원본 쇼츠 영상</span>
+                  </h2>
+                  <a
+                    href={`https://www.youtube.com/shorts/${cleanId}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-[#D4AF37] hover:underline flex items-center gap-1 transition-colors font-medium"
+                  >
+                    <span>유튜브 열기</span>
+                    <ExternalLink size={12} />
+                  </a>
+                </div>
 
-              <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#D9D2BE]/85 text-center leading-relaxed">
-                <Info size={13} className="text-[#D4AF37] shrink-0" />
-                <span>영상을 재생해두고 우측 레시피를 스크롤하며 조리해보세요.</span>
+                {/* 9:16 Shorts Player - Fits comfortably within viewport */}
+                <div className="relative w-full max-w-[280px] sm:max-w-[340px] xl:max-w-[360px] mx-auto aspect-[9/16] max-h-[calc(100vh-230px)] rounded-2xl overflow-hidden bg-black shadow-2xl border border-[#D4AF37]/25">
+                  <iframe
+                    src={embedUrl}
+                    title="원본 쇼츠 영상"
+                    className="w-full h-full border-0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+                </div>
+
+                <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#D9D2BE]/85 text-center leading-relaxed">
+                  <Info size={13} className="text-[#D4AF37] shrink-0" />
+                  <span>영상을 재생해두고 우측 레시피를 스크롤하며 조리해보세요.</span>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* =========================================================================
             우측: 레시피 본문 (PC에서는 독립 스크롤되어 좌측 영상이 움직이지 않음)
