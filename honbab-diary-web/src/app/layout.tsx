@@ -1,11 +1,24 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import '@/styles/globals.css';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 
+export const viewport: Viewport = {
+  themeColor: '#133624',
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+  userScalable: false,
+};
+
 export const metadata: Metadata = {
   title: '혼밥레시피 — 자취생을 위한 AI 레시피 플랫폼',
   description: '유튜브 쇼츠 자취 요리 영상을 AI가 1인분 레시피로 자동 변환하고 장보기 연동 및 카카오페이 결제를 지원합니다.',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: '혼밥레시피',
+  },
 };
 
 export default function RootLayout({
@@ -16,6 +29,10 @@ export default function RootLayout({
   return (
     <html lang="ko" suppressHydrationWarning>
       <head>
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+        <meta name="apple-mobile-web-app-title" content="혼밥레시피" />
+        <meta name="mobile-web-app-capable" content="yes" />
         <script
           dangerouslySetInnerHTML={{
             __html: `

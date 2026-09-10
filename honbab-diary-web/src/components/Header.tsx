@@ -38,7 +38,23 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
   const [mounted, setMounted] = useState<boolean>(false);
   const [isMenuOpen, setIsMenuOpen] = useState<boolean>(false);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [isApp, setIsApp] = useState<boolean>(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const checkIsApp = () => {
+      if (typeof window === 'undefined') return;
+      const standalone =
+        window.matchMedia('(display-mode: standalone)').matches ||
+        (window.navigator as any).standalone === true;
+      const capacitor = !!(window as any).Capacitor?.isNativePlatform();
+      const mobile = window.innerWidth < 768;
+      setIsApp(standalone || capacitor || mobile);
+    };
+    checkIsApp();
+    window.addEventListener('resize', checkIsApp);
+    return () => window.removeEventListener('resize', checkIsApp);
+  }, []);
 
   useEffect(() => {
     // 초기 테마 로드: 기본값은 'light' (화이트 배경)
@@ -176,14 +192,14 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
   };
 
   return (
-    <header className="sticky top-0 z-50 w-full transition-colors duration-200 bg-[#133624]/95 backdrop-blur-md border-b border-[#D4AF37]/25 text-[#FDFBF4] shadow-lg">
+    <header className="sticky top-0 z-50 w-full transition-colors duration-200 bg-[#133624] border-b border-[#D4AF37]/25 text-[#FDFBF4] shadow-lg">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-20 flex items-center justify-between gap-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 sm:gap-3 group shrink-0">
           <div className="w-10 h-10 rounded-xl bg-[#1B4731] text-[#D4AF37] border border-[#D4AF37]/50 flex items-center justify-center shadow-md group-hover:scale-105 group-hover:border-[#D4AF37] transition-all">
             <ChefHat size={22} />
           </div>
-          <span className="font-extrabold text-xl tracking-tight text-[#FDFBF4] group-hover:text-[#D4AF37] transition-colors">
+          <span className="font-extrabold text-lg sm:text-xl tracking-tight text-[#FDFBF4] group-hover:text-[#D4AF37] transition-colors">
             혼밥레시피
           </span>
         </Link>
@@ -221,35 +237,40 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
       </form>
 
       {/* Action Buttons */}
-      <div className="flex items-center gap-3">
-        {/* Theme Toggle Button (Light / Dark) */}
-        <button
-          onClick={toggleTheme}
-          className="h-10 w-10 flex items-center justify-center rounded-full transition-all shadow-sm border bg-[#1B4731] hover:bg-[#24583E] text-[#D4AF37] border-[#D4AF37]/30 hover:border-[#D4AF37] active:scale-95 shrink-0"
-          title={theme === 'dark' ? '딥 그린 모드로 전환' : '다크 모드로 전환'}
-          aria-label="테마 전환"
-        >
-          {theme === 'dark' ? (
-            <Sun size={18} className="text-[#D4AF37]" />
-          ) : (
-            <Moon size={18} className="text-[#FDFBF4]" />
-          )}
-        </button>
+      <div className="flex items-center gap-2.5 sm:gap-3">
+        {/* PC 웹 브라우저에서만 헤더에 노출되는 다크모드 및 장바구니 버튼 (앱에서는 프로필 메뉴 내부로 이동) */}
+        {!isApp && (
+          <div className="hidden md:flex items-center gap-3">
+            {/* Theme Toggle Button (Light / Dark) */}
+            <button
+              onClick={toggleTheme}
+              className="h-10 w-10 flex items-center justify-center rounded-full transition-all shadow-sm border bg-[#1B4731] hover:bg-[#24583E] text-[#D4AF37] border-[#D4AF37]/30 hover:border-[#D4AF37] active:scale-95 shrink-0"
+              title={theme === 'dark' ? '딥 그린 모드로 전환' : '다크 모드로 전환'}
+              aria-label="테마 전환"
+            >
+              {theme === 'dark' ? (
+                <Sun size={18} className="text-[#D4AF37]" />
+              ) : (
+                <Moon size={18} className="text-[#FDFBF4]" />
+              )}
+            </button>
 
-        {/* Cart Button */}
-        <Link
-          href="/cart"
-          onClick={() => soundService.playButtonClick()}
-          className="h-10 w-10 flex items-center justify-center relative rounded-full bg-[#1B4731] hover:bg-[#24583E] text-[#D4AF37] border border-[#D4AF37]/30 hover:border-[#D4AF37] transition-all shadow-sm shrink-0"
-          suppressHydrationWarning
-        >
-          <ShoppingCart size={19} />
-          {mounted && count > 0 && (
-            <span className="absolute -top-1 -right-1 bg-[#D4AF37] text-[#1B4731] font-bold text-[11px] w-5 h-5 rounded-full flex items-center justify-center border border-[#F3E5AB] shadow-sm animate-pulse" suppressHydrationWarning>
-              {count}
-            </span>
-          )}
-        </Link>
+            {/* Cart Button */}
+            <Link
+              href="/cart"
+              onClick={() => soundService.playButtonClick()}
+              className="h-10 w-10 flex items-center justify-center relative rounded-full bg-[#1B4731] hover:bg-[#24583E] text-[#D4AF37] border border-[#D4AF37]/30 hover:border-[#D4AF37] transition-all shadow-sm shrink-0"
+              suppressHydrationWarning
+            >
+              <ShoppingCart size={19} />
+              {mounted && count > 0 && (
+                <span className="absolute -top-1 -right-1 bg-[#D4AF37] text-[#1B4731] font-bold text-[11px] w-5 h-5 rounded-full flex items-center justify-center border border-[#F3E5AB] shadow-sm animate-pulse" suppressHydrationWarning>
+                  {count}
+                </span>
+              )}
+            </Link>
+          </div>
+        )}
 
         {/* Profile Dropdown Container */}
         <div className="relative" ref={menuRef} suppressHydrationWarning>
@@ -357,6 +378,58 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
                       오늘 요리 인증 (+100 XP)
                     </span>
                   </div>
+                </button>
+
+                {/* 1-3. 장바구니 (프로필 메뉴바) */}
+                <button
+                  onClick={() => handleMenuClick('/cart')}
+                  className={`w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left ${
+                    pathname === '/cart'
+                      ? 'bg-[#1B4731] text-[#D4AF37] font-bold border border-[#D4AF37]/60'
+                      : 'text-stone-200 hover:bg-[#1B4731] hover:text-[#FDFBF4]'
+                  }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-1.5 rounded-lg bg-[#0D2418] text-[#D4AF37]">
+                      <ShoppingCart size={16} />
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-[#FDFBF4]">장바구니</span>
+                      <span className="text-[10px] text-[#D9D2BE]">
+                        담은 재료 확인 및 구매
+                      </span>
+                    </div>
+                  </div>
+                  {mounted && count > 0 && (
+                    <span className="px-2 py-0.5 rounded-full text-[11px] font-bold bg-[#D4AF37] text-[#1B4731] shadow-sm">
+                      {count}
+                    </span>
+                  )}
+                </button>
+
+                {/* 1-4. 화면 모드 (다크모드 / 딥 그린 전환) */}
+                <button
+                  onClick={() => {
+                    toggleTheme();
+                  }}
+                  className="w-full flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium transition-all text-left text-stone-200 hover:bg-[#1B4731] hover:text-[#FDFBF4]"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="p-1.5 rounded-lg bg-[#0D2418] text-[#D4AF37]">
+                      {theme === 'dark' ? <Sun size={16} /> : <Moon size={16} />}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="font-semibold text-[#FDFBF4]">
+                        {theme === 'dark' ? '딥 그린 모드로 전환' : '다크 모드로 전환'}
+                      </span>
+                      <span className="text-[10px] text-[#D9D2BE]">
+                        현재: {theme === 'dark' ? '다크 모드' : '딥 그린 모드'}
+                      </span>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-[#0D2418] text-[#D4AF37] border border-[#25583E]">
+                    {theme === 'dark' ? 'Dark' : 'Green'}
+                  </span>
                 </button>
 
                 {/* 2. 북마크 */}

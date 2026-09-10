@@ -1,17 +1,24 @@
 import axios from 'axios';
 
-const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
-const API_BASE_URL = rawUrl.endsWith('/api/v1') ? rawUrl : `${rawUrl.replace(/\/$/, '')}/api/v1`;
+export const getApiBaseUrl = (): string => {
+  // 브라우저 환경에서는 Next.js 프록시(/api/v1)를 사용하여 CORS 및 포트 차단 이슈 방지
+  if (typeof window !== 'undefined') {
+    return '/api/v1';
+  }
+  const rawUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080';
+  return rawUrl.endsWith('/api/v1') ? rawUrl : `${rawUrl.replace(/\/$/, '')}/api/v1`;
+};
 
 export const apiClient = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: getApiBaseUrl(),
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor to attach JWT token
+// Request interceptor to attach JWT token & dynamic baseURL
 apiClient.interceptors.request.use((config) => {
+  config.baseURL = getApiBaseUrl();
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('accessToken');
     if (token) {
