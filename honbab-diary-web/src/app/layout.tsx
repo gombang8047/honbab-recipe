@@ -34,7 +34,7 @@ export default function RootLayout({
           }}
         />
       </head>
-      <body className="antialiased min-h-screen bg-[#1B4731] text-[#FDFBF4] dark:bg-[#0D2418] dark:text-[#FDFBF4] flex flex-col selection:bg-[#D4AF37] selection:text-[#1B4731]">
+      <body className="antialiased min-h-screen bg-[#1B4731] text-[#FDFBF4] dark:bg-[#0D2418] dark:text-[#FDFBF4] flex flex-col selection:bg-[#D4AF37] selection:text-[#1B4731]" suppressHydrationWarning>
         <Header />
         <main className="flex-grow flex flex-col">{children}</main>
         <Footer />

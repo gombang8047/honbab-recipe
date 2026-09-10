@@ -11,11 +11,13 @@ export interface CookingDiaryEntry {
   comment: string; // 한줄평 및 나만의 꿀팁 (공개)
   privateDiary?: string; // 나만의 비밀 일기 (선택사항, 비공개)
   userNickname: string;
+  authorName?: string; // 호환용
   userLevel: number;
   userLevelTitle: string;
   createdAt: number; // timestamp
   likes: number;
   likedByMe: boolean;
+  isLiked?: boolean; // 호환용
   isMyEntry: boolean;
   streakDay: number; // 작성 당시 연속 요리 일수
 }
@@ -216,8 +218,31 @@ export const LEVEL_TIERS: LevelTier[] = [
   }
 ];
 
+export interface UserLevelInfo {
+  currentXp: number;
+  level: number;
+  title: string;
+  description: string;
+  badgeEmoji: string;
+  colorClass: string;
+  progressPercent: number;
+  nextLevelTitle: string;
+  xpToNext: number;
+}
+
+export interface LoginXpResult {
+  awarded: boolean;
+  earnedXp: number;
+  loginStreak: number;
+  newTotalXp: number;
+  isLevelUp: boolean;
+  levelInfo: UserLevelInfo;
+}
+
 const DIARY_STORAGE_KEY = 'honbab_cooking_diaries';
 const USER_XP_KEY = 'honbab_user_xp';
+const LAST_LOGIN_DATE_KEY = 'honbab_last_login_xp_date';
+const LOGIN_STREAK_KEY = 'honbab_login_streak';
 
 // 다른 자취생들이 실제로 작성한 듯한 풍성한 초기 커뮤니티 샘플 일기
 const INITIAL_COMMUNITY_DIARIES: CookingDiaryEntry[] = [
@@ -229,11 +254,13 @@ const INITIAL_COMMUNITY_DIARIES: CookingDiaryEntry[] = [
     rating: 5,
     comment: '파기름 낼 때 대파 넉넉하게 볶고 굴소스 1큰술 넣으니 중국집 볶음밥보다 훨씬 맛있어요! 설거지도 팬 하나로 끝났습니다.',
     userNickname: '신촌자취러',
+    authorName: '신촌자취러',
     userLevel: 3,
     userLevelTitle: '햇반 탈출러',
     createdAt: Date.now() - 1000 * 60 * 60 * 3, // 3시간 전
     likes: 14,
     likedByMe: false,
+    isLiked: false,
     isMyEntry: false,
     streakDay: 4
   },
@@ -245,11 +272,13 @@ const INITIAL_COMMUNITY_DIARIES: CookingDiaryEntry[] = [
     rating: 5,
     comment: '냉장고에 남아있던 스팸 얇게 깍둑썰기해서 같이 볶아줬더니 단짠단짠 대박입니다. 자취생 필수 필살기 레시피 인정!',
     userNickname: '퇴근후요리왕',
+    authorName: '퇴근후요리왕',
     userLevel: 4,
     userLevelTitle: '냉장고 파먹기 고수',
     createdAt: Date.now() - 1000 * 60 * 60 * 18, // 18시간 전
     likes: 27,
     likedByMe: true,
+    isLiked: true,
     isMyEntry: false,
     streakDay: 6
   },
@@ -261,246 +290,369 @@ const INITIAL_COMMUNITY_DIARIES: CookingDiaryEntry[] = [
     rating: 4,
     comment: '면수 버리지 않고 자작하게 끓여내니까 전분기 때문에 소스가 면에 싹 감겨요. 마늘 편 썰어서 노릇하게 익히는 게 핵심!',
     userNickname: '자취미식가',
+    authorName: '자취미식가',
     userLevel: 2,
     userLevelTitle: '라면 물조절 장인',
     createdAt: Date.now() - 1000 * 60 * 60 * 28,
     likes: 9,
     likedByMe: false,
+    isLiked: false,
     isMyEntry: false,
     streakDay: 2
   }
 ];
 
-export const diaryService = {
-  /**
-   * 저장된 전체 요리 일기 목록 조회 (로컬 + 기본 커뮤니티 샘플)
-   */
-  getDiaries: (): CookingDiaryEntry[] => {
-    if (typeof window === 'undefined') return INITIAL_COMMUNITY_DIARIES;
-    try {
-      const saved = localStorage.getItem(DIARY_STORAGE_KEY);
-      if (!saved) {
-        localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(INITIAL_COMMUNITY_DIARIES));
-        return INITIAL_COMMUNITY_DIARIES;
-      }
-      return JSON.parse(saved);
-    } catch {
+/**
+ * 저장된 전체 요리 일기 목록 조회 (로컬 + 기본 커뮤니티 샘플)
+ */
+const getDiaries = (): CookingDiaryEntry[] => {
+  if (typeof window === 'undefined') return INITIAL_COMMUNITY_DIARIES;
+  try {
+    const saved = localStorage.getItem(DIARY_STORAGE_KEY);
+    if (!saved) {
+      localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(INITIAL_COMMUNITY_DIARIES));
       return INITIAL_COMMUNITY_DIARIES;
     }
-  },
-
-  /**
-   * 특정 레시피에 해당하는 일기 목록 (최신순)
-   */
-  getDiariesByRecipe: (recipeId: number): CookingDiaryEntry[] => {
-    const list = diaryService.getDiaries();
-    return list
-      .filter((d) => d.recipeId === recipeId)
-      .sort((a, b) => b.createdAt - a.createdAt);
-  },
-
-  /**
-   * 내가 직접 작성한 일기 목록 (마이페이지 갤러리용)
-   */
-  getMyDiaries: (): CookingDiaryEntry[] => {
-    const list = diaryService.getDiaries();
-    return list
-      .filter((d) => d.isMyEntry)
-      .sort((a, b) => b.createdAt - a.createdAt);
-  },
-
-  /**
-   * 사용자의 현재 누적 경험치 조회
-   */
-  getUserXp: (): number => {
-    if (typeof window === 'undefined') return 350;
-    const val = localStorage.getItem(USER_XP_KEY);
-    if (!val) {
-      localStorage.setItem(USER_XP_KEY, '350');
-      return 350;
-    }
-    return Number(val) || 0;
-  },
-
-  /**
-   * 현재 경험치를 바탕으로 레벨 및 진행률 정보 계산
-   */
-  getUserLevelInfo: (customXp?: number) => {
-    const xp = customXp !== undefined ? customXp : diaryService.getUserXp();
-    let currentTier = LEVEL_TIERS[0];
-
-    for (let i = LEVEL_TIERS.length - 1; i >= 0; i--) {
-      if (xp >= LEVEL_TIERS[i].minXp) {
-        currentTier = LEVEL_TIERS[i];
-        break;
-      }
-    }
-
-    const nextTier = LEVEL_TIERS.find((t) => t.level === currentTier.level + 1) || null;
-    let progressPercent = 100;
-    let xpToNext = 0;
-
-    if (nextTier) {
-      const range = nextTier.minXp - currentTier.minXp;
-      const currentProgress = xp - currentTier.minXp;
-      progressPercent = Math.min(100, Math.max(0, Math.round((currentProgress / range) * 100)));
-      xpToNext = nextTier.minXp - xp;
-    }
-
-    return {
-      currentXp: xp,
-      level: currentTier.level,
-      title: currentTier.title,
-      description: currentTier.description,
-      badgeEmoji: currentTier.badgeEmoji,
-      colorClass: currentTier.colorClass,
-      progressPercent,
-      nextLevelTitle: nextTier ? nextTier.title : '최고 레벨 달성!',
-      xpToNext
-    };
-  },
-
-  /**
-   * 연속 작성 일수(스트릭 🔥) 계산
-   */
-  getStreakDays: (): number => {
-    const myDiaries = diaryService.getMyDiaries();
-    if (myDiaries.length === 0) return 1;
-
-    const dates = myDiaries.map((d) => {
-      const date = new Date(d.createdAt);
-      return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-    });
-
-    const uniqueDates = Array.from(new Set(dates)).sort().reverse();
-    if (uniqueDates.length === 0) return 1;
-
-    let streak = 1;
-    let curr = new Date(uniqueDates[0]);
-
-    for (let i = 1; i < uniqueDates.length; i++) {
-      const prev = new Date(uniqueDates[i]);
-      const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
-      if (diffDays === 1) {
-        streak++;
-        curr = prev;
-      } else {
-        break;
-      }
-    }
-
-    return Math.max(1, streak);
-  },
-
-  /**
-   * 새 요리 일기 등록 (사진 + 한줄평 필수)
-   */
-  addDiaryEntry: (params: {
-    recipeId: number;
-    recipeTitle: string;
-    photoUrl: string;
-    rating: number;
-    comment: string;
-    privateDiary?: string;
-  }): {
-    entry: CookingDiaryEntry;
-    earnedXp: number;
-    streakBonus: number;
-    newTotalXp: number;
-    isLevelUp: boolean;
-    levelInfo: ReturnType<typeof diaryService.getUserLevelInfo>;
-  } => {
-    const prevXp = diaryService.getUserXp();
-    const prevLevelInfo = diaryService.getUserLevelInfo(prevXp);
-    const currentStreak = diaryService.getStreakDays();
-
-    // 1. 경험치 산정: 기본 100 XP + 스트릭 보너스
-    const baseEarnedXp = 100;
-    let streakBonus = 0;
-    if (currentStreak >= 7) streakBonus = 200;
-    else if (currentStreak >= 3) streakBonus = 60;
-    else if (currentStreak >= 2) streakBonus = 30;
-
-    const totalEarnedXp = baseEarnedXp + streakBonus;
-    const newTotalXp = prevXp + totalEarnedXp;
-
-    // 2. 일기 엔트리 객체 생성
-    const userNickname = (typeof window !== 'undefined' && localStorage.getItem('userNickname')) || '자취 미식가';
-    const newEntry: CookingDiaryEntry = {
-      id: `diary_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-      recipeId: params.recipeId,
-      recipeTitle: params.recipeTitle,
-      photoUrl: params.photoUrl,
-      rating: params.rating,
-      comment: params.comment.trim(),
-      privateDiary: params.privateDiary?.trim() || undefined,
-      userNickname,
-      userLevel: prevLevelInfo.level,
-      userLevelTitle: prevLevelInfo.title,
-      createdAt: Date.now(),
-      likes: 1, // 본인 자동 좋아요 1개
-      likedByMe: true,
-      isMyEntry: true,
-      streakDay: currentStreak + 1
-    };
-
-    // 3. 로컬 스토리지 저장
-    const currentList = diaryService.getDiaries();
-    const updatedList = [newEntry, ...currentList];
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(updatedList));
-      localStorage.setItem(USER_XP_KEY, newTotalXp.toString());
-      // 전역 이벤트 발행
-      window.dispatchEvent(new CustomEvent('diary-added', { detail: newEntry }));
-    }
-
-    const newLevelInfo = diaryService.getUserLevelInfo(newTotalXp);
-    const isLevelUp = newLevelInfo.level > prevLevelInfo.level;
-
-    return {
-      entry: newEntry,
-      earnedXp: totalEarnedXp,
-      streakBonus,
-      newTotalXp,
-      isLevelUp,
-      levelInfo: newLevelInfo
-    };
-  },
-
-  /**
-   * '맛있어 보여요 😋' 좋아요 토글
-   */
-  toggleLike: (diaryId: string): CookingDiaryEntry[] => {
-    const list = diaryService.getDiaries();
-    const updated = list.map((d) => {
-      if (d.id === diaryId) {
-        const nextLiked = !d.likedByMe;
-        return {
-          ...d,
-          likedByMe: nextLiked,
-          likes: nextLiked ? d.likes + 1 : Math.max(0, d.likes - 1)
-        };
-      }
-      return d;
-    });
-
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent('diary-updated'));
-    }
-    return updated;
-  },
-
-  /**
-   * 일기 삭제 (내 일기만 가능)
-   */
-  deleteDiary: (diaryId: string): CookingDiaryEntry[] => {
-    const list = diaryService.getDiaries();
-    const updated = list.filter((d) => d.id !== diaryId);
-    if (typeof window !== 'undefined') {
-      localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(updated));
-      window.dispatchEvent(new CustomEvent('diary-updated'));
-    }
-    return updated;
+    return JSON.parse(saved);
+  } catch {
+    return INITIAL_COMMUNITY_DIARIES;
   }
+};
+
+/**
+ * 특정 레시피에 해당하는 일기 목록 (최신순)
+ */
+const getDiariesByRecipe = (recipeId: number): CookingDiaryEntry[] => {
+  const list = getDiaries();
+  return list
+    .filter((d) => d.recipeId === recipeId)
+    .sort((a, b) => b.createdAt - a.createdAt);
+};
+
+/**
+ * 내가 직접 작성한 일기 목록 (마이페이지 갤러리용)
+ */
+const getMyDiaries = (): CookingDiaryEntry[] => {
+  const list = getDiaries();
+  return list
+    .filter((d) => d.isMyEntry)
+    .sort((a, b) => b.createdAt - a.createdAt);
+};
+
+/**
+ * 사용자의 현재 누적 경험치 조회
+ */
+const getUserXp = (): number => {
+  if (typeof window === 'undefined') return 350;
+  const val = localStorage.getItem(USER_XP_KEY);
+  if (!val) {
+    localStorage.setItem(USER_XP_KEY, '350');
+    return 350;
+  }
+  return Number(val) || 0;
+};
+
+/**
+ * 현재 경험치를 바탕으로 레벨 및 진행률 정보 계산
+ */
+const getUserLevelInfo = (customXp?: number): UserLevelInfo => {
+  const xp = customXp !== undefined ? customXp : getUserXp();
+  let currentTier = LEVEL_TIERS[0];
+
+  for (let i = LEVEL_TIERS.length - 1; i >= 0; i--) {
+    if (xp >= LEVEL_TIERS[i].minXp) {
+      currentTier = LEVEL_TIERS[i];
+      break;
+    }
+  }
+
+  const nextTier = LEVEL_TIERS.find((t) => t.level === currentTier.level + 1) || null;
+  let progressPercent = 100;
+  let xpToNext = 0;
+
+  if (nextTier) {
+    const range = nextTier.minXp - currentTier.minXp;
+    const currentProgress = xp - currentTier.minXp;
+    progressPercent = Math.min(100, Math.max(0, Math.round((currentProgress / range) * 100)));
+    xpToNext = nextTier.minXp - xp;
+  }
+
+  return {
+    currentXp: xp,
+    level: currentTier.level,
+    title: currentTier.title,
+    description: currentTier.description,
+    badgeEmoji: currentTier.badgeEmoji,
+    colorClass: currentTier.colorClass,
+    progressPercent,
+    nextLevelTitle: nextTier ? nextTier.title : '최고 레벨 달성!',
+    xpToNext
+  };
+};
+
+/**
+ * 연속 작성 일수(스트릭 🔥) 계산
+ */
+const getStreakDays = (): number => {
+  const myDiaries = getMyDiaries();
+  if (myDiaries.length === 0) return 1;
+
+  const dates: string[] = myDiaries.map((d) => {
+    const date = new Date(d.createdAt);
+    return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+  });
+
+  const uniqueDates: string[] = Array.from(new Set(dates)).sort().reverse();
+  if (uniqueDates.length === 0) return 1;
+
+  let streak = 1;
+  let curr = new Date(uniqueDates[0]);
+
+  for (let i = 1; i < uniqueDates.length; i++) {
+    const prev = new Date(uniqueDates[i]);
+    const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
+    if (diffDays === 1) {
+      streak++;
+      curr = prev;
+    } else {
+      break;
+    }
+  }
+
+  return Math.max(1, streak);
+};
+
+/**
+ * 새 요리 일기 등록 (사진 + 한줄평 필수)
+ */
+const addDiaryEntry = (params: {
+  recipeId: number;
+  recipeTitle: string;
+  photoUrl: string;
+  rating: number;
+  comment: string;
+  privateDiary?: string;
+}): {
+  entry: CookingDiaryEntry;
+  earnedXp: number;
+  streakBonus: number;
+  newTotalXp: number;
+  isLevelUp: boolean;
+  levelInfo: UserLevelInfo;
+} => {
+  const prevXp = getUserXp();
+  const prevLevelInfo = getUserLevelInfo(prevXp);
+  const currentStreak = getStreakDays();
+
+  // 1. 경험치 산정: 기본 100 XP + 스트릭 보너스
+  const baseEarnedXp = 100;
+  let streakBonus = 0;
+  if (currentStreak >= 7) streakBonus = 200;
+  else if (currentStreak >= 3) streakBonus = 60;
+  else if (currentStreak >= 2) streakBonus = 30;
+
+  const totalEarnedXp = baseEarnedXp + streakBonus;
+  const newTotalXp = prevXp + totalEarnedXp;
+
+  // 2. 일기 엔트리 객체 생성
+  const userNickname = (typeof window !== 'undefined' && localStorage.getItem('userNickname')) || '자취 미식가';
+  const newEntry: CookingDiaryEntry = {
+    id: `diary_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
+    recipeId: params.recipeId,
+    recipeTitle: params.recipeTitle,
+    photoUrl: params.photoUrl,
+    rating: params.rating,
+    comment: params.comment.trim(),
+    privateDiary: params.privateDiary?.trim() || undefined,
+    userNickname,
+    authorName: userNickname,
+    userLevel: prevLevelInfo.level,
+    userLevelTitle: prevLevelInfo.title,
+    createdAt: Date.now(),
+    likes: 1, // 본인 자동 좋아요 1개
+    likedByMe: true,
+    isLiked: true,
+    isMyEntry: true,
+    streakDay: currentStreak + 1
+  };
+
+  // 3. 로컬 스토리지 저장
+  const currentList = getDiaries();
+  const updatedList = [newEntry, ...currentList];
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(updatedList));
+    localStorage.setItem(USER_XP_KEY, newTotalXp.toString());
+    // 전역 이벤트 발행
+    window.dispatchEvent(new CustomEvent('diary-added', { detail: newEntry }));
+  }
+
+  const newLevelInfo = getUserLevelInfo(newTotalXp);
+  const isLevelUp = newLevelInfo.level > prevLevelInfo.level;
+
+  return {
+    entry: newEntry,
+    earnedXp: totalEarnedXp,
+    streakBonus,
+    newTotalXp,
+    isLevelUp,
+    levelInfo: newLevelInfo
+  };
+};
+
+/**
+ * '맛있어 보여요 😋' 좋아요 토글
+ */
+const toggleLike = (diaryId: string): CookingDiaryEntry[] => {
+  const list = getDiaries();
+  const updated = list.map((d) => {
+    if (d.id === diaryId) {
+      const nextLiked = !d.likedByMe;
+      return {
+        ...d,
+        likedByMe: nextLiked,
+        isLiked: nextLiked,
+        likes: nextLiked ? d.likes + 1 : Math.max(0, d.likes - 1)
+      };
+    }
+    return d;
+  });
+
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('diary-updated'));
+  }
+  return updated;
+};
+
+/**
+ * 일기 삭제 (내 일기만 가능)
+ */
+const deleteDiary = (diaryId: string): CookingDiaryEntry[] => {
+  const list = getDiaries();
+  const updated = list.filter((d) => d.id !== diaryId);
+  if (typeof window !== 'undefined') {
+    localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(updated));
+    window.dispatchEvent(new CustomEvent('diary-updated'));
+  }
+  return updated;
+};
+
+/**
+ * 당일 첫 방문/접속 시 백그라운드에서 조용히 접속 경험치(+15 XP 및 연속 방문 보너스) 자동 부여
+ * (별도 팝업/알림 없이 사용자가 눈치채지 못하게 이미 레벨/경험치에 자연스럽게 반영되어 있도록 처리)
+ */
+const checkAndAwardLoginXp = (): LoginXpResult => {
+  const currentXp = getUserXp();
+  const currentLevelInfo = getUserLevelInfo(currentXp);
+
+  if (typeof window === 'undefined') {
+    return {
+      awarded: false,
+      earnedXp: 0,
+      loginStreak: 1,
+      newTotalXp: currentXp,
+      isLevelUp: false,
+      levelInfo: currentLevelInfo,
+    };
+  }
+
+  const todayObj = new Date();
+  const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+  const lastLoginDate = localStorage.getItem(LAST_LOGIN_DATE_KEY);
+  const storedStreak = Number(localStorage.getItem(LOGIN_STREAK_KEY)) || 1;
+
+  // 오늘 이미 접속 경험치가 지급되었으면 통과
+  if (lastLoginDate === todayStr) {
+    return {
+      awarded: false,
+      earnedXp: 0,
+      loginStreak: storedStreak,
+      newTotalXp: currentXp,
+      isLevelUp: false,
+      levelInfo: currentLevelInfo,
+    };
+  }
+
+  // 연속 출석 일수 계산
+  let newStreak = 1;
+  if (lastLoginDate) {
+    const lastParts = lastLoginDate.split('-').map(Number);
+    if (lastParts.length === 3) {
+      const lastUtc = Date.UTC(lastParts[0], lastParts[1] - 1, lastParts[2]);
+      const todayUtc = Date.UTC(todayObj.getFullYear(), todayObj.getMonth(), todayObj.getDate());
+      const diffDays = Math.round((todayUtc - lastUtc) / (1000 * 60 * 60 * 24));
+
+      if (diffDays === 1) {
+        // 어제 접속한 경우 연속 일수 +1
+        newStreak = storedStreak + 1;
+      } else if (diffDays > 1) {
+        // 하루 이상 건너뛴 경우 1일차로 리셋
+        newStreak = 1;
+      }
+    }
+  }
+
+  // 접속 경험치 산정: 기본 15 XP + 연속 출석 소량 보너스
+  const baseLoginXp = 15;
+  let streakBonus = 0;
+  if (newStreak >= 7) streakBonus = 10;
+  else if (newStreak >= 3) streakBonus = 5;
+
+  const totalEarnedXp = baseLoginXp + streakBonus;
+  const newTotalXp = currentXp + totalEarnedXp;
+  const prevLevelInfo = currentLevelInfo;
+  const newLevelInfo = getUserLevelInfo(newTotalXp);
+  const isLevelUp = newLevelInfo.level > prevLevelInfo.level;
+
+  // 조용히 로컬 스토리지 갱신
+  localStorage.setItem(USER_XP_KEY, newTotalXp.toString());
+  localStorage.setItem(LAST_LOGIN_DATE_KEY, todayStr);
+  localStorage.setItem(LOGIN_STREAK_KEY, newStreak.toString());
+  localStorage.setItem('honbab_user_level', `Lv.${newLevelInfo.level}`);
+
+  // 전역 상태 갱신 이벤트 트리거 (알림 없이 수치만 자동 반영)
+  window.dispatchEvent(new CustomEvent('diary-updated'));
+  window.dispatchEvent(new Event('auth-change'));
+
+  return {
+    awarded: true,
+    earnedXp: totalEarnedXp,
+    loginStreak: newStreak,
+    newTotalXp,
+    isLevelUp,
+    levelInfo: newLevelInfo,
+  };
+};
+
+/**
+ * 일일 출석 및 접속 현황 정보 조회
+ */
+const getLoginAttendanceInfo = () => {
+  if (typeof window === 'undefined') {
+    return { hasClaimedToday: true, streakDays: 1, lastDate: null };
+  }
+  const todayObj = new Date();
+  const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
+  const lastLoginDate = localStorage.getItem(LAST_LOGIN_DATE_KEY);
+  const streakDays = Number(localStorage.getItem(LOGIN_STREAK_KEY)) || 1;
+
+  return {
+    hasClaimedToday: lastLoginDate === todayStr,
+    streakDays,
+    lastDate: lastLoginDate,
+  };
+};
+
+export const diaryService = {
+  getDiaries,
+  getDiariesByRecipe,
+  getMyDiaries,
+  getUserXp,
+  getUserLevelInfo,
+  getStreakDays,
+  addDiaryEntry,
+  toggleLike,
+  deleteDiary,
+  checkAndAwardLoginXp,
+  getLoginAttendanceInfo,
 };

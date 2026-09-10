@@ -1,7 +1,8 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { RecipeDetail } from '@/services/recipeApi';
 import { CookingTimer } from './CookingTimer';
 import { diaryService, CookingDiaryEntry, LEVEL_TIERS } from '@/services/diaryService';
+import { settingsService } from '@/services/settingsService';
 import {
   ShoppingBag,
   Users,
@@ -26,6 +27,8 @@ import {
   MessageSquare,
   Lock,
   X,
+  ShieldAlert,
+  AlertTriangle,
 } from 'lucide-react';
 import { shortsApi } from '@/services/shortsApi';
 import { soundService, TimerSoundType, TIMER_SOUND_OPTIONS } from '@/services/soundService';
@@ -57,6 +60,51 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
   } | null>(null);
   const [diaries, setDiaries] = useState<CookingDiaryEntry[]>([]);
   const soundMenuRef = useRef<HTMLDivElement>(null);
+
+  // 기피 식재료 & 알레르기 설정 조회 및 실시간 감지
+  const [dietarySettings, setDietarySettings] = useState(() => settingsService.getSettings().dietary);
+
+  useEffect(() => {
+    const handleSettingsChange = (e: any) => {
+      if (e.detail?.dietary) {
+        setDietarySettings(e.detail.dietary);
+      } else {
+        setDietarySettings(settingsService.getSettings().dietary);
+      }
+    };
+    window.addEventListener('honbab-settings-changed', handleSettingsChange);
+    return () => window.removeEventListener('honbab-settings-changed', handleSettingsChange);
+  }, []);
+
+  // 알레르기 유발 식재료 매칭
+  const matchedAllergies = useMemo(() => {
+    const userAllergies = dietarySettings.allergies || [];
+    if (userAllergies.length === 0) return [];
+    return userAllergies.filter((allergy) =>
+      recipe.ingredients.some((ing) => ing.name.includes(allergy) || allergy.includes(ing.name)) ||
+      recipe.title.includes(allergy)
+    );
+  }, [dietarySettings, recipe]);
+
+  // 기피 식재료 매칭
+  const matchedDislikes = useMemo(() => {
+    const userDislikes = dietarySettings.dislikedIngredients || [];
+    if (userDislikes.length === 0) return [];
+    return userDislikes.filter((dislike) =>
+      recipe.ingredients.some((ing) => ing.name.includes(dislike) || dislike.includes(ing.name)) ||
+      recipe.title.includes(dislike)
+    );
+  }, [dietarySettings, recipe]);
+
+  const isIngredientAllergy = (name: string) => {
+    const userAllergies = dietarySettings.allergies || [];
+    return userAllergies.some((allergy) => name.includes(allergy) || allergy.includes(name));
+  };
+
+  const isIngredientDisliked = (name: string) => {
+    const userDislikes = dietarySettings.dislikedIngredients || [];
+    return userDislikes.some((dislike) => name.includes(dislike) || dislike.includes(name));
+  };
 
   const targetShortsId = recipe.shortsId || recipe.id;
 
@@ -298,6 +346,30 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                 </div>
               </div>
             </div>
+
+            {/* Dietary Warnings Banner (기피 식재료 & 알레르기 주의 안내 배지) */}
+            {(matchedAllergies.length > 0 || matchedDislikes.length > 0) && (
+              <div className="flex flex-col gap-2 pt-2 border-t border-[#D4AF37]/20">
+                {matchedAllergies.length > 0 && (
+                  <div className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/40 text-rose-200 flex items-start gap-2.5 text-xs shadow-sm animate-in fade-in duration-300">
+                    <ShieldAlert size={18} className="text-rose-400 shrink-0 mt-0.5" />
+                    <div className="leading-relaxed">
+                      <span className="font-bold text-rose-300">🚨 식품 알레르기 주의 배지: </span>
+                      마이페이지에 등록하신 알레르기 유발 식재료(<strong>{matchedAllergies.join(', ')}</strong>)가 포함된 요리입니다. 조리 및 섭취 시 각별히 주의하세요!
+                    </div>
+                  </div>
+                )}
+                {matchedDislikes.length > 0 && (
+                  <div className="p-3.5 rounded-2xl bg-orange-500/15 border border-orange-500/40 text-orange-200 flex items-start gap-2.5 text-xs shadow-sm animate-in fade-in duration-300">
+                    <AlertTriangle size={18} className="text-orange-400 shrink-0 mt-0.5" />
+                    <div className="leading-relaxed">
+                      <span className="font-bold text-orange-300">⚠️ 기피 식재료 주의 배지: </span>
+                      평소 피하시는 식재료(<strong>{matchedDislikes.join(', ')}</strong>)가 포함되어 있습니다. 필요 시 다른 대체 재료를 사용해 보세요.
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 2. Ingredients & Cart CTA */}
@@ -341,19 +413,29 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
               {recipe.ingredients.map((ing) => {
                 const isChecked = !!checkedIngredients[ing.ingredientId];
+                const hasAllergy = isIngredientAllergy(ing.name);
+                const isDisliked = isIngredientDisliked(ing.name);
+
                 return (
                   <div
                     key={ing.ingredientId}
                     onClick={() => toggleIngredient(ing.ingredientId)}
                     className={`px-4 py-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all duration-200 select-none ${
                       isChecked
-                        ? 'bg-[#1B4731] border-[#D4AF37]/50 text-[#FDFBF4] shadow-sm hover:border-[#D4AF37]'
+                        ? hasAllergy
+                          ? 'bg-rose-950/30 border-rose-500/50 text-[#FDFBF4] shadow-sm hover:border-rose-400'
+                          : isDisliked
+                          ? 'bg-amber-950/30 border-orange-500/50 text-[#FDFBF4] shadow-sm hover:border-orange-400'
+                          : 'bg-[#1B4731] border-[#D4AF37]/50 text-[#FDFBF4] shadow-sm hover:border-[#D4AF37]'
                         : 'bg-[#1B4731]/40 border-[#D4AF37]/15 text-[#D9D2BE]/50 opacity-60 hover:opacity-80'
                     }`}
                   >
-                    <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center gap-2.5 min-w-0">
                       {isChecked ? (
-                        <CheckSquare size={17} className="text-[#D4AF37] shrink-0" />
+                        <CheckSquare
+                          size={17}
+                          className={hasAllergy ? 'text-rose-400 shrink-0' : isDisliked ? 'text-orange-400 shrink-0' : 'text-[#D4AF37] shrink-0'}
+                        />
                       ) : (
                         <Square size={17} className="text-[#D9D2BE]/40 shrink-0" />
                       )}
@@ -364,12 +446,30 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                       >
                         {ing.name}
                       </span>
+                      {hasAllergy && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/25 text-rose-300 border border-rose-500/40 font-bold flex items-center gap-0.5 shrink-0">
+                          <ShieldAlert size={10} />
+                          <span>알레르기</span>
+                        </span>
+                      )}
+                      {isDisliked && !hasAllergy && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-orange-500/25 text-orange-300 border border-orange-500/40 font-bold flex items-center gap-0.5 shrink-0">
+                          <AlertTriangle size={10} />
+                          <span>기피</span>
+                        </span>
+                      )}
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
                       <span
                         className={`text-xs leading-normal font-semibold ${
-                          isChecked ? 'text-[#D4AF37]' : 'text-[#D9D2BE]/40 line-through'
+                          isChecked
+                            ? hasAllergy
+                              ? 'text-rose-300'
+                              : isDisliked
+                              ? 'text-orange-300'
+                              : 'text-[#D4AF37]'
+                            : 'text-[#D9D2BE]/40 line-through'
                         }`}
                       >
                         {ing.amount} {ing.unit}
@@ -595,7 +695,7 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
             {/* Avatar */}
             <div className="relative mt-2">
               <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-500 p-0.5 shadow-xl">
-                <div className="w-full h-full rounded-2xl bg-slate-950 flex items-center justify-center text-white text-2xl font-black">
+                <div className="w-full h-full rounded-2xl bg-[#0D2418] flex items-center justify-center text-[#FDFBF4] text-2xl font-black">
                   {selectedUserProfile.nickname.charAt(0)}
                 </div>
               </div>
