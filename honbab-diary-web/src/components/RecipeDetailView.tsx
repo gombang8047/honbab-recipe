@@ -328,7 +328,7 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
 
           return (
             <div className="lg:col-span-5 xl:col-span-4 lg:h-full lg:flex lg:flex-col lg:justify-start lg:min-h-0">
-              <div className="p-4 sm:p-5 rounded-3xl flex flex-col gap-3.5 border border-[#D4AF37]/30 bg-[#133624] shadow-2xl">
+              <div className="p-4 sm:p-5 rounded-3xl flex flex-col gap-3 border border-[#D4AF37]/30 bg-[#133624] shadow-2xl lg:h-full lg:min-h-0">
                 <div className="flex items-center justify-between">
                   <h2 className="text-sm font-bold text-[#FDFBF4] flex items-center gap-2">
                     <Youtube size={18} className="text-[#D4AF37]" />
@@ -338,11 +338,10 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                     <button
                       type="button"
                       onClick={() => setIsPipMode(!isPipMode)}
-                      className={`text-xs px-2.5 py-1 rounded-lg border font-medium flex items-center gap-1.5 transition-all ${
-                        isPipMode
+                      className={`text-xs px-2.5 py-1 rounded-lg border font-medium flex items-center gap-1.5 transition-all ${isPipMode
                           ? 'bg-[#D4AF37] text-[#0D2418] border-[#D4AF37] font-bold shadow-md'
                           : 'bg-[#1B4731] text-[#D4AF37] border-[#D4AF37]/40 hover:bg-[#D4AF37]/20'
-                      }`}
+                        }`}
                       title={isPipMode ? "원래 위치로 복귀" : "화면 구석 미니 플레이어(PiP)로 보기"}
                     >
                       <PictureInPicture2 size={13} />
@@ -362,7 +361,7 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
 
                 {/* 9:16 Shorts Player - Fits comfortably within viewport */}
                 {!isPipMode ? (
-                  <div className="relative w-full max-w-[280px] sm:max-w-[340px] xl:max-w-[360px] mx-auto aspect-[9/16] max-h-[calc(100vh-230px)] rounded-2xl overflow-hidden bg-black shadow-2xl border border-[#D4AF37]/25">
+                  <div className="relative w-full max-w-[340px] lg:max-w-none lg:w-auto lg:h-full lg:flex-1 lg:min-h-0 aspect-[9/16] mx-auto rounded-2xl overflow-hidden bg-black shadow-2xl border border-[#D4AF37]/25">
                     <iframe
                       src={embedUrl}
                       title="원본 쇼츠 영상"
@@ -392,11 +391,6 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                     </button>
                   </div>
                 )}
-
-                <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#D9D2BE]/85 text-center leading-relaxed">
-                  <Info size={13} className="text-[#D4AF37] shrink-0" />
-                  <span>{isPipMode ? '우측 하단 미니 화면을 보며 레시피를 이용할 수 있습니다.' : '영상을 재생해두고 우측 레시피를 스크롤하며 조리해보세요.'}</span>
-                </div>
               </div>
             </div>
           );
@@ -423,8 +417,8 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
               <button
                 onClick={handleToggleBookmark}
                 className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border ${bookmarked
-                    ? 'bg-[#D4AF37] text-[#1B4731] border-[#D4AF37] shadow-sm'
-                    : 'bg-[#1B4731] text-[#E7E2D3] border-[#D4AF37]/30 hover:text-[#FDFBF4] hover:border-[#D4AF37]'
+                  ? 'bg-[#D4AF37] text-[#1B4731] border-[#D4AF37] shadow-sm'
+                  : 'bg-[#1B4731] text-[#E7E2D3] border-[#D4AF37]/30 hover:text-[#FDFBF4] hover:border-[#D4AF37]'
                   }`}
                 title={bookmarked ? '북마크 해제' : '레시피 북마크 저장'}
               >
@@ -514,10 +508,10 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                 onClick={handleAddToCart}
                 disabled={selectedCount === 0}
                 className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition-all ${selectedCount === 0
-                    ? 'bg-[#1B4731] text-[#D9D2BE]/60 cursor-not-allowed border border-[#D4AF37]/20'
-                    : added
-                      ? 'bg-emerald-600 text-[#FDFBF4]'
-                      : 'bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] active:scale-98'
+                  ? 'bg-[#1B4731] text-[#D9D2BE]/60 cursor-not-allowed border border-[#D4AF37]/20'
+                  : added
+                    ? 'bg-emerald-600 text-[#FDFBF4]'
+                    : 'bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] active:scale-98'
                   }`}
               >
                 <ShoppingBag size={15} />
@@ -545,12 +539,12 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                     key={ing.ingredientId}
                     onClick={() => toggleIngredient(ing.ingredientId)}
                     className={`px-4 py-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all duration-200 select-none ${isChecked
-                        ? hasAllergy
-                          ? 'bg-rose-950/30 border-rose-500/50 text-[#FDFBF4] shadow-sm hover:border-rose-400'
-                          : isDisliked
-                            ? 'bg-amber-950/30 border-orange-500/50 text-[#FDFBF4] shadow-sm hover:border-orange-400'
-                            : 'bg-[#1B4731] border-[#D4AF37]/50 text-[#FDFBF4] shadow-sm hover:border-[#D4AF37]'
-                        : 'bg-[#1B4731]/40 border-[#D4AF37]/15 text-[#D9D2BE]/50 opacity-60 hover:opacity-80'
+                      ? hasAllergy
+                        ? 'bg-rose-950/30 border-rose-500/50 text-[#FDFBF4] shadow-sm hover:border-rose-400'
+                        : isDisliked
+                          ? 'bg-amber-950/30 border-orange-500/50 text-[#FDFBF4] shadow-sm hover:border-orange-400'
+                          : 'bg-[#1B4731] border-[#D4AF37]/50 text-[#FDFBF4] shadow-sm hover:border-[#D4AF37]'
+                      : 'bg-[#1B4731]/40 border-[#D4AF37]/15 text-[#D9D2BE]/50 opacity-60 hover:opacity-80'
                       }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
@@ -585,12 +579,12 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                     <div className="flex items-center gap-2 shrink-0">
                       <span
                         className={`text-xs leading-normal font-semibold ${isChecked
-                            ? hasAllergy
-                              ? 'text-rose-300'
-                              : isDisliked
-                                ? 'text-orange-300'
-                                : 'text-[#D4AF37]'
-                            : 'text-[#D9D2BE]/40 line-through'
+                          ? hasAllergy
+                            ? 'text-rose-300'
+                            : isDisliked
+                              ? 'text-orange-300'
+                              : 'text-[#D4AF37]'
+                          : 'text-[#D9D2BE]/40 line-through'
                           }`}
                       >
                         {ing.amount} {ing.unit}
@@ -644,8 +638,8 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                           key={option.id}
                           onClick={() => handleSelectSound(option.id)}
                           className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs transition-all text-left ${soundType === option.id
-                              ? 'bg-[#D4AF37] text-[#1B4731] font-semibold'
-                              : 'text-[#E7E2D3] hover:bg-[#1B4731] hover:text-[#FDFBF4]'
+                            ? 'bg-[#D4AF37] text-[#1B4731] font-semibold'
+                            : 'text-[#E7E2D3] hover:bg-[#1B4731] hover:text-[#FDFBF4]'
                             }`}
                         >
                           <div className="flex items-center gap-2">
@@ -773,8 +767,8 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                       <button
                         onClick={() => handleToggleLike(diary.id)}
                         className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 border transition-all ${diary.likedByMe
-                            ? 'bg-[#D4AF37] text-[#1B4731] border-[#F3E5AB] shadow-sm'
-                            : 'bg-[#0D2418] text-[#D9D2BE] border-[#D4AF37]/25 hover:border-[#D4AF37]'
+                          ? 'bg-[#D4AF37] text-[#1B4731] border-[#F3E5AB] shadow-sm'
+                          : 'bg-[#0D2418] text-[#D9D2BE] border-[#D4AF37]/25 hover:border-[#D4AF37]'
                           }`}
                         title="맛있어 보여요!"
                       >
@@ -882,9 +876,8 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
             <div
               ref={pipRef}
               style={pipPos ? { left: `${pipPos.x}px`, top: `${pipPos.y}px` } : undefined}
-              className={`fixed z-50 w-[175px] sm:w-[215px] flex flex-col rounded-2xl overflow-hidden shadow-2xl border-2 border-[#D4AF37] bg-[#133624] select-none ${
-                !pipPos ? 'bottom-6 right-3 sm:right-6' : ''
-              } ${isDraggingPip ? 'scale-105 opacity-95 shadow-[0_20px_50px_rgba(0,0,0,0.85)] ring-2 ring-[#D4AF37]/60' : 'transition-transform duration-150'}`}
+              className={`fixed z-50 w-[175px] sm:w-[215px] flex flex-col rounded-2xl overflow-hidden shadow-2xl border-2 border-[#D4AF37] bg-[#133624] select-none ${!pipPos ? 'bottom-6 right-3 sm:right-6' : ''
+                } ${isDraggingPip ? 'scale-105 opacity-95 shadow-[0_20px_50px_rgba(0,0,0,0.85)] ring-2 ring-[#D4AF37]/60' : 'transition-transform duration-150'}`}
             >
               {/* PiP 상단 헤더 바 (드래그 핸들) */}
               <div
