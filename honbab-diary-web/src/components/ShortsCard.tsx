@@ -56,39 +56,39 @@ export const ShortsCard: React.FC<ShortsCardProps> = ({ shorts, onConvertAi, onP
         />
 
         {/* Duration badge */}
-        <div className="absolute top-3 left-3 bg-black/75 backdrop-blur-md text-white text-xs px-2.5 py-1 rounded-full flex items-center gap-1 border border-white/15">
-          <Clock size={12} className="text-[#D4AF37]" />
+        <div className="absolute top-2 sm:top-3 left-2 sm:left-3 bg-black/75 backdrop-blur-md text-white text-[10px] sm:text-xs px-2 sm:px-2.5 py-0.5 sm:py-1 rounded-full flex items-center gap-1 border border-white/15">
+          <Clock size={11} className="text-[#D4AF37]" />
           <span>{shorts.durationSeconds}초</span>
         </div>
 
         {/* Bookmark button */}
         <button
           onClick={toggleBookmark}
-          className={`absolute top-3 right-3 p-2 rounded-full backdrop-blur-md transition-all active:scale-90 z-10 ${bookmarked
+          className={`absolute top-2 sm:top-3 right-2 sm:right-3 p-1.5 sm:p-2 rounded-full backdrop-blur-md transition-all active:scale-90 z-10 ${bookmarked
               ? 'bg-[#D4AF37] text-[#1B4731] border border-[#F3E5AB] shadow-md'
               : 'bg-black/60 text-stone-200 hover:text-white hover:bg-black/80 border border-white/20'
             }`}
           aria-label="북마크"
         >
-          <Bookmark size={16} fill={bookmarked ? 'currentColor' : 'none'} />
+          <Bookmark size={15} fill={bookmarked ? 'currentColor' : 'none'} />
         </button>
 
         {/* Play Icon Hover Overlay */}
         <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity bg-black/40 backdrop-blur-[2px]">
-          <div className="bg-[#D4AF37] text-[#1B4731] p-4 rounded-full shadow-2xl border border-[#F3E5AB] scale-90 group-hover:scale-100 transition-transform flex items-center justify-center">
-            <Play size={26} fill="currentColor" className="ml-1 text-[#1B4731]" />
+          <div className="bg-[#D4AF37] text-[#1B4731] p-3 sm:p-4 rounded-full shadow-2xl border border-[#F3E5AB] scale-90 group-hover:scale-100 transition-transform flex items-center justify-center">
+            <Play size={22} fill="currentColor" className="ml-0.5 text-[#1B4731]" />
           </div>
         </div>
 
         {/* View count & tags overlay - 해시태그 내용에 맞춰 높이가 유동적으로 감싸는 가변 배경 */}
-        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-[#0D2418]/95 via-[#0D2418]/70 to-transparent pt-7 pb-2.5 px-3 flex flex-col gap-1.5 pointer-events-none">
-          {/* 해시태그 (상위 5개만 깔끔하게 노출) */}
+        <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-[#0D2418]/95 via-[#0D2418]/70 to-transparent pt-6 sm:pt-7 pb-2 sm:pb-2.5 px-2.5 sm:px-3 flex flex-col gap-1 sm:gap-1.5 pointer-events-none">
+          {/* 해시태그 */}
           {shorts.tags && shorts.tags.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {shorts.tags.slice(0, 5).map((tag, idx) => (
+            <div className="flex flex-wrap gap-1">
+              {shorts.tags.slice(0, 3).map((tag, idx) => (
                 <span
                   key={idx}
-                  className="bg-[#133624]/95 text-[#D4AF37] text-[10px] px-2 py-0.5 rounded-md border border-[#D4AF37]/40 font-semibold shadow-sm"
+                  className="bg-[#133624]/95 text-[#D4AF37] text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 rounded-md border border-[#D4AF37]/40 font-semibold shadow-sm"
                 >
                   #{tag}
                 </span>
@@ -96,29 +96,37 @@ export const ShortsCard: React.FC<ShortsCardProps> = ({ shorts, onConvertAi, onP
             </div>
           )}
 
-          <div className="flex items-center gap-1 text-stone-200 text-xs">
-            <Eye size={13} className="text-[#D4AF37]" />
-            <span>{(shorts.viewCount / 10000).toFixed(1)}만회</span>
-            <span className="mx-1 text-stone-400">•</span>
-            <span className="truncate">{shorts.channelName}</span>
+          {/* 조회수 & 영상주인 채널명 (50:50 반반 공간 분할 & 넘치면 ...) */}
+          <div className="grid grid-cols-2 gap-1.5 w-full text-stone-200 text-[10px] sm:text-xs">
+            <div className="flex items-center gap-1 min-w-0 overflow-hidden">
+              <Eye size={11} className="text-[#D4AF37] shrink-0" />
+              <span className="truncate font-medium">
+                {(shorts.viewCount / 10000).toFixed(1)}만회
+              </span>
+            </div>
+            <div className="flex items-center justify-end min-w-0 overflow-hidden">
+              <span className="truncate text-stone-300 font-medium text-right">
+                {shorts.channelName}
+              </span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Card Info & Actions (Sub Color: Cream White #FDFBF4 - 30%) */}
-      <div className="p-4 flex flex-col justify-between flex-grow gap-3 bg-[#FDFBF4]">
+      <div className="p-2.5 sm:p-4 flex flex-col justify-between flex-grow gap-2 sm:gap-3 bg-[#FDFBF4]">
         <h3
           onClick={() => onPlay(shorts)}
-          className="font-bold text-[#1B4731] text-sm line-clamp-2 leading-snug cursor-pointer hover:text-[#255e42] transition-colors"
+          className="font-extrabold text-[#1B4731] text-sm sm:text-base line-clamp-2 leading-snug cursor-pointer hover:text-[#255e42] transition-colors min-h-[38px] sm:min-h-[44px]"
         >
           {shorts.title}
         </h3>
 
         <button
           onClick={() => onConvertAi(shorts)}
-          className="w-full text-[#FDFBF4] font-bold py-2.5 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-md active:scale-98 transition-all bg-[#1B4731] hover:bg-[#255e42] border border-[#D4AF37]/40"
+          className="w-full text-[#FDFBF4] font-bold py-2 sm:py-2.5 px-2 sm:px-4 rounded-xl text-[11px] sm:text-xs flex items-center justify-center gap-1.5 shadow-md active:scale-98 transition-all bg-[#1B4731] hover:bg-[#255e42] border border-[#D4AF37]/40"
         >
-          <Sparkles size={15} className="text-[#D4AF37]" />
+          <Sparkles size={13} className="text-[#D4AF37]" />
           <span>AI 레시피 보기</span>
         </button>
       </div>

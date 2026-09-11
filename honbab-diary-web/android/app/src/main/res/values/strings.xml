@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">혼밥일기</string>
+    <string name="title_activity_main">혼밥일기</string>
+    <string name="package_name">com.honbab.diary</string>
+    <string name="custom_url_scheme">com.honbab.diary</string>
+</resources>

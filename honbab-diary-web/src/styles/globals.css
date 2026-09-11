@@ -47,10 +47,10 @@
   padding: 0;
 }
 
-/* Deep Green #1B4731 Background (Default: 60%) */
+/* Deep Green Background (헤더 #133624 일치 및 iOS 카메라/상태바 영역 일체화) */
 html {
-  background-color: #1B4731;
-  color-scheme: light;
+  background-color: #133624;
+  color-scheme: dark light;
 }
 
 body {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useMemo } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
 import { RecipeDetail } from '@/services/recipeApi';
 import { CookingTimer } from './CookingTimer';
 import { diaryService, CookingDiaryEntry, LEVEL_TIERS } from '@/services/diaryService';
@@ -29,6 +29,9 @@ import {
   X,
   ShieldAlert,
   AlertTriangle,
+  PictureInPicture2,
+  Maximize2,
+  GripHorizontal,
 } from 'lucide-react';
 import { shortsApi } from '@/services/shortsApi';
 import { soundService, TimerSoundType, TIMER_SOUND_OPTIONS } from '@/services/soundService';
@@ -59,6 +62,83 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
     streakDay: number;
   } | null>(null);
   const [diaries, setDiaries] = useState<CookingDiaryEntry[]>([]);
+  const [isPipMode, setIsPipMode] = useState<boolean>(false);
+  const [pipPos, setPipPos] = useState<{ x: number; y: number } | null>(null);
+  const [isDraggingPip, setIsDraggingPip] = useState<boolean>(false);
+  const pipRef = useRef<HTMLDivElement>(null);
+  const dragStartRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number }>({
+    startX: 0,
+    startY: 0,
+    initialX: 0,
+    initialY: 0,
+  });
+
+  const updatePipPos = useCallback((clientX: number, clientY: number) => {
+    const deltaX = clientX - dragStartRef.current.startX;
+    const deltaY = clientY - dragStartRef.current.startY;
+    const pipW = pipRef.current?.offsetWidth || 180;
+    const pipH = pipRef.current?.offsetHeight || 320;
+    const padding = 10;
+    const minX = padding;
+    const maxX = Math.max(padding, window.innerWidth - pipW - padding);
+    const minY = padding;
+    const maxY = Math.max(padding, window.innerHeight - pipH - padding);
+
+    const nextX = Math.min(Math.max(minX, dragStartRef.current.initialX + deltaX), maxX);
+    const nextY = Math.min(Math.max(minY, dragStartRef.current.initialY + deltaY), maxY);
+
+    setPipPos({ x: nextX, y: nextY });
+  }, []);
+
+  const startPipDrag = (clientX: number, clientY: number) => {
+    if (!pipRef.current) return;
+    const rect = pipRef.current.getBoundingClientRect();
+    dragStartRef.current = {
+      startX: clientX,
+      startY: clientY,
+      initialX: rect.left,
+      initialY: rect.top,
+    };
+    setIsDraggingPip(true);
+  };
+
+  useEffect(() => {
+    if (!isDraggingPip) return;
+
+    const handleMouseMove = (e: MouseEvent) => {
+      e.preventDefault();
+      updatePipPos(e.clientX, e.clientY);
+    };
+
+    const handleMouseUp = () => {
+      setIsDraggingPip(false);
+    };
+
+    const handleTouchMove = (e: TouchEvent) => {
+      if (e.touches.length > 0) {
+        updatePipPos(e.touches[0].clientX, e.touches[0].clientY);
+      }
+    };
+
+    const handleTouchEnd = () => {
+      setIsDraggingPip(false);
+    };
+
+    window.addEventListener('mousemove', handleMouseMove);
+    window.addEventListener('mouseup', handleMouseUp);
+    window.addEventListener('touchmove', handleTouchMove, { passive: true });
+    window.addEventListener('touchend', handleTouchEnd);
+    window.addEventListener('touchcancel', handleTouchEnd);
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+      window.removeEventListener('touchmove', handleTouchMove);
+      window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
+    };
+  }, [isDraggingPip, updatePipPos]);
+
   const soundMenuRef = useRef<HTMLDivElement>(null);
 
   // 기피 식재료 & 알레르기 설정 조회 및 실시간 감지
@@ -138,7 +218,7 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
         try {
           const list = JSON.parse(saved);
           setBookmarked(list.some((s: any) => s.id === targetShortsId));
-        } catch {}
+        } catch { }
       }
 
       const savedSound = localStorage.getItem('honbab_timer_sound') as TimerSoundType;
@@ -238,43 +318,83 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
         {/* =========================================================================
             좌측: 쇼츠 영상 플레이어 (PC에서는 전체 화면 높이에 맞춰 고정되어 움직이지 않음)
            ========================================================================= */}
-        {recipe.shortsYoutubeId && (
-          <div className="lg:col-span-5 xl:col-span-4 lg:h-full lg:flex lg:flex-col lg:justify-start lg:min-h-0">
-            <div className="p-4 sm:p-5 rounded-3xl flex flex-col gap-3.5 border border-[#D4AF37]/30 bg-[#133624] shadow-2xl">
-              <div className="flex items-center justify-between">
-                <h2 className="text-sm font-bold text-[#FDFBF4] flex items-center gap-2">
-                  <Youtube size={18} className="text-[#D4AF37]" />
-                  <span>원본 쇼츠 영상</span>
-                </h2>
-                <a
-                  href={`https://www.youtube.com/shorts/${recipe.shortsYoutubeId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-xs text-[#D4AF37] hover:underline flex items-center gap-1 transition-colors font-medium"
-                >
-                  <span>유튜브 열기</span>
-                  <ExternalLink size={12} />
-                </a>
-              </div>
+        {recipe.shortsYoutubeId && (() => {
+          const rawId = recipe.shortsYoutubeId;
+          const cleanId = (!rawId || rawId.startsWith('mock_'))
+            ? 'c7pQG-x5D68'
+            : (rawId.match(/(?:shorts\/|v=|youtu\.be\/|embed\/)?([a-zA-Z0-9_-]{11})/)?.[1] || rawId);
+          const origin = typeof window !== 'undefined' ? window.location.origin : '';
+          const embedUrl = `https://www.youtube.com/embed/${encodeURIComponent(cleanId)}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
 
-              {/* 9:16 Shorts Player - Fits comfortably within viewport */}
-              <div className="relative w-full max-w-[340px] xl:max-w-[360px] mx-auto aspect-[9/16] max-h-[calc(100vh-230px)] rounded-2xl overflow-hidden bg-black shadow-2xl border border-[#D4AF37]/25">
-                <iframe
-                  src={`https://www.youtube.com/embed/${recipe.shortsYoutubeId}?rel=0&playsinline=1`}
-                  title="원본 쇼츠 영상"
-                  className="w-full h-full border-0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
+          return (
+            <div className="lg:col-span-5 xl:col-span-4 lg:h-full lg:flex lg:flex-col lg:justify-start lg:min-h-0">
+              <div className="p-4 sm:p-5 rounded-3xl flex flex-col gap-3 border border-[#D4AF37]/30 bg-[#133624] shadow-2xl lg:h-full lg:min-h-0">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-sm font-bold text-[#FDFBF4] flex items-center gap-2">
+                    <Youtube size={18} className="text-[#D4AF37]" />
+                    <span>원본 쇼츠 영상</span>
+                  </h2>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setIsPipMode(!isPipMode)}
+                      className={`text-xs px-2.5 py-1 rounded-lg border font-medium flex items-center gap-1.5 transition-all ${isPipMode
+                          ? 'bg-[#D4AF37] text-[#0D2418] border-[#D4AF37] font-bold shadow-md'
+                          : 'bg-[#1B4731] text-[#D4AF37] border-[#D4AF37]/40 hover:bg-[#D4AF37]/20'
+                        }`}
+                      title={isPipMode ? "원래 위치로 복귀" : "화면 구석 미니 플레이어(PiP)로 보기"}
+                    >
+                      <PictureInPicture2 size={13} />
+                      <span>{isPipMode ? 'PiP 켜짐' : 'PiP 모드'}</span>
+                    </button>
+                    <a
+                      href={`https://www.youtube.com/shorts/${cleanId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-[#D4AF37] hover:underline flex items-center gap-1 transition-colors font-medium ml-1"
+                    >
+                      <span>유튜브</span>
+                      <ExternalLink size={12} />
+                    </a>
+                  </div>
+                </div>
 
-              <div className="flex items-center justify-center gap-1.5 text-[11px] text-[#D9D2BE]/85 text-center leading-relaxed">
-                <Info size={13} className="text-[#D4AF37] shrink-0" />
-                <span>영상을 재생해두고 우측 레시피를 스크롤하며 조리해보세요.</span>
+                {/* 9:16 Shorts Player - Fits comfortably within viewport */}
+                {!isPipMode ? (
+                  <div className="relative w-full max-w-[340px] lg:max-w-none lg:w-auto lg:h-full lg:flex-1 lg:min-h-0 aspect-[9/16] mx-auto rounded-2xl overflow-hidden bg-black shadow-2xl border border-[#D4AF37]/25">
+                    <iframe
+                      src={embedUrl}
+                      title="원본 쇼츠 영상"
+                      className="w-full h-full border-0"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
+                  </div>
+                ) : (
+                  <div className="w-full max-w-[280px] sm:max-w-[340px] xl:max-w-[360px] mx-auto aspect-[9/16] max-h-[260px] rounded-2xl bg-[#0D2418]/90 border border-dashed border-[#D4AF37]/40 flex flex-col items-center justify-center p-4 text-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-[#1B4731] flex items-center justify-center text-[#D4AF37] shadow-inner">
+                      <PictureInPicture2 size={24} className="animate-pulse" />
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-[#FDFBF4]">미니 플레이어로 재생 중</p>
+                      <p className="text-[11px] text-[#D9D2BE]/80 mt-1">
+                        화면 우측 하단에서 영상이 계속 재생됩니다.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsPipMode(false)}
+                      className="text-xs px-3 py-1.5 rounded-xl bg-[#D4AF37] text-[#0D2418] font-bold hover:bg-[#c39f2f] transition-all flex items-center gap-1.5 shadow-md"
+                    >
+                      <Maximize2 size={13} />
+                      <span>원래 위치로 복귀</span>
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* =========================================================================
             우측: 레시피 본문 (PC에서는 독립 스크롤되어 좌측 영상이 움직이지 않음)
@@ -296,11 +416,10 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
               {/* Bookmark Button */}
               <button
                 onClick={handleToggleBookmark}
-                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border ${
-                  bookmarked
-                    ? 'bg-[#D4AF37] text-[#1B4731] border-[#D4AF37] shadow-sm'
-                    : 'bg-[#1B4731] text-[#E7E2D3] border-[#D4AF37]/30 hover:text-[#FDFBF4] hover:border-[#D4AF37]'
-                }`}
+                className={`flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold transition-all border ${bookmarked
+                  ? 'bg-[#D4AF37] text-[#1B4731] border-[#D4AF37] shadow-sm'
+                  : 'bg-[#1B4731] text-[#E7E2D3] border-[#D4AF37]/30 hover:text-[#FDFBF4] hover:border-[#D4AF37]'
+                  }`}
                 title={bookmarked ? '북마크 해제' : '레시피 북마크 저장'}
               >
                 <Bookmark size={14} fill={bookmarked ? 'currentColor' : 'none'} />
@@ -388,13 +507,12 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
               <button
                 onClick={handleAddToCart}
                 disabled={selectedCount === 0}
-                className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition-all ${
-                  selectedCount === 0
-                    ? 'bg-[#1B4731] text-[#D9D2BE]/60 cursor-not-allowed border border-[#D4AF37]/20'
-                    : added
+                className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition-all ${selectedCount === 0
+                  ? 'bg-[#1B4731] text-[#D9D2BE]/60 cursor-not-allowed border border-[#D4AF37]/20'
+                  : added
                     ? 'bg-emerald-600 text-[#FDFBF4]'
                     : 'bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] active:scale-98'
-                }`}
+                  }`}
               >
                 <ShoppingBag size={15} />
                 <span>
@@ -420,15 +538,14 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                   <div
                     key={ing.ingredientId}
                     onClick={() => toggleIngredient(ing.ingredientId)}
-                    className={`px-4 py-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all duration-200 select-none ${
-                      isChecked
-                        ? hasAllergy
-                          ? 'bg-rose-950/30 border-rose-500/50 text-[#FDFBF4] shadow-sm hover:border-rose-400'
-                          : isDisliked
+                    className={`px-4 py-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all duration-200 select-none ${isChecked
+                      ? hasAllergy
+                        ? 'bg-rose-950/30 border-rose-500/50 text-[#FDFBF4] shadow-sm hover:border-rose-400'
+                        : isDisliked
                           ? 'bg-amber-950/30 border-orange-500/50 text-[#FDFBF4] shadow-sm hover:border-orange-400'
                           : 'bg-[#1B4731] border-[#D4AF37]/50 text-[#FDFBF4] shadow-sm hover:border-[#D4AF37]'
-                        : 'bg-[#1B4731]/40 border-[#D4AF37]/15 text-[#D9D2BE]/50 opacity-60 hover:opacity-80'
-                    }`}
+                      : 'bg-[#1B4731]/40 border-[#D4AF37]/15 text-[#D9D2BE]/50 opacity-60 hover:opacity-80'
+                      }`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       {isChecked ? (
@@ -440,9 +557,8 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                         <Square size={17} className="text-[#D9D2BE]/40 shrink-0" />
                       )}
                       <span
-                        className={`text-sm font-medium leading-normal flex items-center truncate ${
-                          isChecked ? 'text-[#FDFBF4] font-semibold' : 'text-[#D9D2BE]/50 line-through'
-                        }`}
+                        className={`text-sm font-medium leading-normal flex items-center truncate ${isChecked ? 'text-[#FDFBF4] font-semibold' : 'text-[#D9D2BE]/50 line-through'
+                          }`}
                       >
                         {ing.name}
                       </span>
@@ -462,15 +578,14 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
 
                     <div className="flex items-center gap-2 shrink-0">
                       <span
-                        className={`text-xs leading-normal font-semibold ${
-                          isChecked
-                            ? hasAllergy
-                              ? 'text-rose-300'
-                              : isDisliked
+                        className={`text-xs leading-normal font-semibold ${isChecked
+                          ? hasAllergy
+                            ? 'text-rose-300'
+                            : isDisliked
                               ? 'text-orange-300'
                               : 'text-[#D4AF37]'
-                            : 'text-[#D9D2BE]/40 line-through'
-                        }`}
+                          : 'text-[#D9D2BE]/40 line-through'
+                          }`}
                       >
                         {ing.amount} {ing.unit}
                       </span>
@@ -522,11 +637,10 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                         <button
                           key={option.id}
                           onClick={() => handleSelectSound(option.id)}
-                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs transition-all text-left ${
-                            soundType === option.id
-                              ? 'bg-[#D4AF37] text-[#1B4731] font-semibold'
-                              : 'text-[#E7E2D3] hover:bg-[#1B4731] hover:text-[#FDFBF4]'
-                          }`}
+                          className={`w-full flex items-center justify-between px-2.5 py-2 rounded-xl text-xs transition-all text-left ${soundType === option.id
+                            ? 'bg-[#D4AF37] text-[#1B4731] font-semibold'
+                            : 'text-[#E7E2D3] hover:bg-[#1B4731] hover:text-[#FDFBF4]'
+                            }`}
                         >
                           <div className="flex items-center gap-2">
                             <span>{option.name}</span>
@@ -652,11 +766,10 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                       {/* Likes button */}
                       <button
                         onClick={() => handleToggleLike(diary.id)}
-                        className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 border transition-all ${
-                          diary.likedByMe
-                            ? 'bg-[#D4AF37] text-[#1B4731] border-[#F3E5AB] shadow-sm'
-                            : 'bg-[#0D2418] text-[#D9D2BE] border-[#D4AF37]/25 hover:border-[#D4AF37]'
-                        }`}
+                        className={`px-2.5 py-1 rounded-full text-xs font-semibold flex items-center gap-1 border transition-all ${diary.likedByMe
+                          ? 'bg-[#D4AF37] text-[#1B4731] border-[#F3E5AB] shadow-sm'
+                          : 'bg-[#0D2418] text-[#D9D2BE] border-[#D4AF37]/25 hover:border-[#D4AF37]'
+                          }`}
                         title="맛있어 보여요!"
                       >
                         <span>😋</span>
@@ -741,6 +854,101 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
           </div>
         </div>
       )}
+
+      {/* =========================================================================
+          인앱 플로팅 PiP 미니 플레이어 (화면 구석에 고정되어 레시피/타이머와 동시 이용)
+         ========================================================================= */}
+      {isPipMode && recipe.shortsYoutubeId && (() => {
+        const rawId = recipe.shortsYoutubeId;
+        const cleanId = (!rawId || rawId.startsWith('mock_'))
+          ? 'c7pQG-x5D68'
+          : (rawId.match(/(?:shorts\/|v=|youtu\.be\/|embed\/)?([a-zA-Z0-9_-]{11})/)?.[1] || rawId);
+        const origin = typeof window !== 'undefined' ? window.location.origin : '';
+        const embedUrl = `https://www.youtube.com/embed/${encodeURIComponent(cleanId)}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
+
+        return (
+          <>
+            {/* 드래그 중일 때 iframe이 마우스/터치 이벤트를 가로채지 못하도록 방지하는 오버레이 */}
+            {isDraggingPip && (
+              <div className="fixed inset-0 z-[55] cursor-grabbing select-none" />
+            )}
+
+            <div
+              ref={pipRef}
+              style={pipPos ? { left: `${pipPos.x}px`, top: `${pipPos.y}px` } : undefined}
+              className={`fixed z-50 w-[175px] sm:w-[215px] flex flex-col rounded-2xl overflow-hidden shadow-2xl border-2 border-[#D4AF37] bg-[#133624] select-none ${!pipPos ? 'bottom-6 right-3 sm:right-6' : ''
+                } ${isDraggingPip ? 'scale-105 opacity-95 shadow-[0_20px_50px_rgba(0,0,0,0.85)] ring-2 ring-[#D4AF37]/60' : 'transition-transform duration-150'}`}
+            >
+              {/* PiP 상단 헤더 바 (드래그 핸들) */}
+              <div
+                onMouseDown={(e) => {
+                  if ((e.target as HTMLElement).closest('button')) return;
+                  e.preventDefault();
+                  startPipDrag(e.clientX, e.clientY);
+                }}
+                onTouchStart={(e) => {
+                  if ((e.target as HTMLElement).closest('button')) return;
+                  if (e.touches.length > 0) {
+                    startPipDrag(e.touches[0].clientX, e.touches[0].clientY);
+                  }
+                }}
+                className="flex items-center justify-between px-2.5 py-1.5 bg-[#0D2418] border-b border-[#D4AF37]/30 text-xs cursor-grab active:cursor-grabbing touch-none select-none"
+              >
+                <div className="flex items-center gap-1.5 text-[#D4AF37] font-bold pointer-events-none">
+                  <GripHorizontal size={13} className="text-[#D4AF37]/80" />
+                  <span className="text-[11px] tracking-tight">쇼츠 PiP</span>
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setIsPipMode(false)}
+                    className="p-1 rounded-md text-[#D9D2BE] hover:text-[#FDFBF4] hover:bg-[#1B4731] transition-colors"
+                    title="원래 크기로 복귀"
+                  >
+                    <Maximize2 size={12} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsPipMode(false)}
+                    className="p-1 rounded-md text-[#D9D2BE] hover:text-red-400 hover:bg-[#1B4731] transition-colors"
+                    title="PiP 닫기"
+                  >
+                    <X size={12} />
+                  </button>
+                </div>
+              </div>
+
+              {/* PiP Video Iframe */}
+              <div className="relative w-full aspect-[9/16] bg-black">
+                <iframe
+                  src={embedUrl}
+                  title="쇼츠 PiP 미니 플레이어"
+                  className="w-full h-full border-0"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                  allowFullScreen
+                />
+              </div>
+
+              {/* PiP 하단 드래그 바 (모바일에서 엄지로 쉽게 이동 가능) */}
+              <div
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  startPipDrag(e.clientX, e.clientY);
+                }}
+                onTouchStart={(e) => {
+                  if (e.touches.length > 0) {
+                    startPipDrag(e.touches[0].clientX, e.touches[0].clientY);
+                  }
+                }}
+                className="py-1 px-2 bg-[#0D2418] border-t border-[#D4AF37]/25 flex items-center justify-center cursor-grab active:cursor-grabbing touch-none select-none text-[10px] text-[#D9D2BE]/80 hover:text-[#D4AF37] gap-1 transition-colors"
+              >
+                <GripHorizontal size={12} />
+                <span>꾹 누르고 이동</span>
+              </div>
+            </div>
+          </>
+        );
+      })()}
     </div>
   );
 };
