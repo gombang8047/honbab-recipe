@@ -243,6 +243,24 @@ const DIARY_STORAGE_KEY = 'honbab_cooking_diaries';
 const USER_XP_KEY = 'honbab_user_xp';
 const LAST_LOGIN_DATE_KEY = 'honbab_last_login_xp_date';
 const LOGIN_STREAK_KEY = 'honbab_login_streak';
+const DAILY_DIARY_XP_DATE_KEY = 'honbab_daily_diary_xp_date';
+const DAILY_DIARY_XP_AMOUNT_KEY = 'honbab_daily_diary_xp_amount';
+
+export const DAILY_MAX_DIARY_XP = 400; // 하루 최대 요리일기 획득 경험치
+
+/**
+ * 오늘 획득한 요리일기 누적 경험치 조회
+ */
+const getTodayEarnedDiaryXp = (): number => {
+  if (typeof window === 'undefined') return 0;
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const storedDate = localStorage.getItem(DAILY_DIARY_XP_DATE_KEY);
+  if (storedDate !== todayStr) {
+    return 0;
+  }
+  return Number(localStorage.getItem(DAILY_DIARY_XP_AMOUNT_KEY)) || 0;
+};
+
 
 // 초기 커뮤니티 목데이터 제거 (사용자가 직접 작성한 일기만 유지)
 const INITIAL_COMMUNITY_DIARIES: CookingDiaryEntry[] = [];
@@ -284,10 +302,19 @@ const getDiariesByRecipe = (recipeId: number): CookingDiaryEntry[] => {
  */
 const getMyDiaries = (): CookingDiaryEntry[] => {
   const list = getDiaries();
+  const currentNickname = (typeof window !== 'undefined' && localStorage.getItem('userNickname')) || '자취 미식가';
+
   return list
-    .filter((d) => d.isMyEntry)
+    .filter((d) => {
+      // 1. 직접 작성 플래그가 true이거나
+      if (d.isMyEntry) return true;
+      // 2. 닉네임이 일치하거나
+      if (d.userNickname === currentNickname || d.authorName === currentNickname) return true;
+      return false;
+    })
     .sort((a, b) => b.createdAt - a.createdAt);
 };
+
 
 /**
  * 사용자의 현재 누적 경험치 조회
@@ -385,24 +412,40 @@ const addDiaryEntry = (params: {
 }): {
   entry: CookingDiaryEntry;
   earnedXp: number;
+  rawEarnedXp: number;
   streakBonus: number;
   newTotalXp: number;
   isLevelUp: boolean;
   levelInfo: UserLevelInfo;
+  todayEarnedXp: number;
+  isDailyLimitReached: boolean;
 } => {
   const prevXp = getUserXp();
   const prevLevelInfo = getUserLevelInfo(prevXp);
   const currentStreak = getStreakDays();
 
-  // 1. 경험치 산정: 기본 100 XP + 스트릭 보너스
+  // 1. 경험치 산정: 기본 100 XP + 스트릭 보너스 (하루 최대 400 XP 제한 적용)
   const baseEarnedXp = 100;
   let streakBonus = 0;
   if (currentStreak >= 7) streakBonus = 200;
   else if (currentStreak >= 3) streakBonus = 60;
   else if (currentStreak >= 2) streakBonus = 30;
 
-  const totalEarnedXp = baseEarnedXp + streakBonus;
-  const newTotalXp = prevXp + totalEarnedXp;
+  const rawEarnedXp = baseEarnedXp + streakBonus;
+
+  // 당일 누적 획득량 확인 및 한도(400 XP) 적용
+  const todayEarned = getTodayEarnedDiaryXp();
+  const availableXpQuota = Math.max(0, DAILY_MAX_DIARY_XP - todayEarned);
+  const actualEarnedXp = Math.min(rawEarnedXp, availableXpQuota);
+  const newTotalXp = prevXp + actualEarnedXp;
+
+  // 당일 누적 기록 갱신
+  if (typeof window !== 'undefined') {
+    const todayStr = new Date().toISOString().slice(0, 10);
+    localStorage.setItem(DAILY_DIARY_XP_DATE_KEY, todayStr);
+    localStorage.setItem(DAILY_DIARY_XP_AMOUNT_KEY, (todayEarned + actualEarnedXp).toString());
+  }
+
 
   // 2. 일기 엔트리 객체 생성
   const userNickname = (typeof window !== 'undefined' && localStorage.getItem('userNickname')) || '자취 미식가';
@@ -426,28 +469,50 @@ const addDiaryEntry = (params: {
     streakDay: currentStreak + 1
   };
 
-  // 3. 로컬 스토리지 저장
+  // 3. 로컬 스토리지 저장 (용량 초과 QuotaExceeded 방지 안심 로직)
   const currentList = getDiaries();
   const updatedList = [newEntry, ...currentList];
   if (typeof window !== 'undefined') {
-    localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(updatedList));
-    localStorage.setItem(USER_XP_KEY, newTotalXp.toString());
+    try {
+      localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(updatedList));
+      localStorage.setItem(USER_XP_KEY, newTotalXp.toString());
+    } catch (storageError) {
+      console.warn('localStorage 용량 초과 발생, 오래된 사진 항목 정리 시도:', storageError);
+      // 저장 공간 부족 시, 가장 오래된 일기 목록의 대용량 사진 데이터 경량화 후 재시도
+      try {
+        const compactList = updatedList.map((entry, idx) => {
+          if (idx > 5 && entry.photoUrl && entry.photoUrl.startsWith('data:image')) {
+            return { ...entry, photoUrl: '' }; // 오래된 일기의 무거운 base64 제거
+          }
+          return entry;
+        });
+        localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(compactList));
+        localStorage.setItem(USER_XP_KEY, newTotalXp.toString());
+      } catch (finalError) {
+        console.error('로컬스토리지 최종 저장 실패:', finalError);
+      }
+    }
     // 전역 이벤트 발행
     window.dispatchEvent(new CustomEvent('diary-added', { detail: newEntry }));
   }
+
 
   const newLevelInfo = getUserLevelInfo(newTotalXp);
   const isLevelUp = newLevelInfo.level > prevLevelInfo.level;
 
   return {
     entry: newEntry,
-    earnedXp: totalEarnedXp,
+    earnedXp: actualEarnedXp,
+    rawEarnedXp,
     streakBonus,
     newTotalXp,
     isLevelUp,
-    levelInfo: newLevelInfo
+    levelInfo: newLevelInfo,
+    todayEarnedXp: todayEarned + actualEarnedXp,
+    isDailyLimitReached: todayEarned + actualEarnedXp >= DAILY_MAX_DIARY_XP
   };
 };
+
 
 /**
  * '맛있어 보여요 😋' 좋아요 토글
@@ -605,4 +670,6 @@ export const diaryService = {
   deleteDiary,
   checkAndAwardLoginXp,
   getLoginAttendanceInfo,
+  getTodayEarnedDiaryXp,
 };
+
