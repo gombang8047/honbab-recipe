@@ -185,6 +185,24 @@ export const cartService = {
   },
 
   /**
+   * 특정 레시피 그룹에 속한 재료들의 체크 일괄 토글
+   */
+  toggleRecipeGroupChecked: (recipeTitle: string, checked: boolean): CartIngredient[] => {
+    const current = cartService.getItems();
+    const updated = current.map((item) => {
+      const groupKey = item.recipeTitle || '일반 장바구니 재료';
+      if (groupKey === recipeTitle) {
+        return { ...item, checked };
+      }
+      return item;
+    });
+    try {
+      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(updated));
+    } catch {}
+    return updated;
+  },
+
+  /**
    * 전체 선택 / 전체 해제
    */
   toggleAll: (checked: boolean): CartIngredient[] => {
@@ -195,6 +213,7 @@ export const cartService = {
     } catch {}
     return updated;
   },
+
 
   /**
    * 수량 변경
