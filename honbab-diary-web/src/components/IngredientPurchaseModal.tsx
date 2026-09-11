@@ -4,6 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { X, ExternalLink, ShoppingBag, Sparkles, Check, CheckSquare, Square, Info } from 'lucide-react';
 import { getIngredientPricing, IngredientPricingResult } from '@/services/ingredientPricing';
 import { soundService } from '@/services/soundService';
+import { deepLinkService } from '@/services/deepLinkService';
+import { PlatformSelectModal, PlatformSelectInfo } from '@/components/PlatformSelectModal';
 
 interface IngredientPurchaseModalProps {
   isOpen: boolean;
@@ -26,6 +28,7 @@ export const IngredientPurchaseModal: React.FC<IngredientPurchaseModalProps> = (
 }) => {
   const [activeTier, setActiveTier] = useState<'value' | 'lowest' | 'rocket'>('value');
   const [pricing, setPricing] = useState<IngredientPricingResult | null>(null);
+  const [platformModalInfo, setPlatformModalInfo] = useState<PlatformSelectInfo | null>(null);
 
   useEffect(() => {
     if (ingredientName) {
@@ -56,8 +59,34 @@ export const IngredientPurchaseModal: React.FC<IngredientPurchaseModalProps> = (
 
   const handleOpenLink = (url: string, platform: 'coupang' | 'kurly') => {
     soundService.playButtonClick();
-    window.open(url, '_blank', 'noopener,noreferrer');
+    const isMobile =
+      typeof navigator !== 'undefined' &&
+      /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
+
+    if (!isMobile) {
+      window.open(url, '_blank', 'noopener,noreferrer');
+      return;
+    }
+
+    // 스마트 기억 확인: 이전에 선택한 선호 방식이 있으면 바텀시트 없이 0초 만에 바로 실행!
+    const pref = deepLinkService.getPreference(platform);
+    if (pref === 'app') {
+      deepLinkService.openAppDirect(platform, pricing.ingredientName, url);
+      return;
+    }
+    if (pref === 'web') {
+      deepLinkService.openWebDirect(url);
+      return;
+    }
+
+    // 선택 기록이 없으면 바텀시트 표시
+    setPlatformModalInfo({
+      platform,
+      ingredientName: pricing.ingredientName,
+      webUrl: url,
+    });
   };
+
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 animate-in fade-in duration-200">
@@ -200,6 +229,12 @@ export const IngredientPurchaseModal: React.FC<IngredientPurchaseModalProps> = (
           </p>
         </div>
       </div>
+
+      {/* 모바일 쇼핑몰 연결 방식 선택 바텀시트 */}
+      <PlatformSelectModal
+        info={platformModalInfo}
+        onClose={() => setPlatformModalInfo(null)}
+      />
     </div>
   );
 };

@@ -21,7 +21,7 @@ import {
   ExternalLink,
   ChefHat
 } from 'lucide-react';
-import { diaryService, CookingDiaryEntry } from '@/services/diaryService';
+import { diaryService, CookingDiaryEntry, DAILY_MAX_DIARY_XP } from '@/services/diaryService';
 import { soundService } from '@/services/soundService';
 import { shortsApi, ShortsItem } from '@/services/shortsApi';
 
@@ -61,14 +61,19 @@ function DiaryWriteContent() {
   const [comment, setComment] = useState<string>('');
   const [privateDiary, setPrivateDiary] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
+  const [todayEarnedXp, setTodayEarnedXp] = useState<number>(0);
   const [resultData, setResultData] = useState<{
     earnedXp: number;
+    rawEarnedXp?: number;
     streakBonus: number;
     isLevelUp: boolean;
     newLevel: number;
     newLevelTitle: string;
     recipeId: number;
+    isDailyLimitReached?: boolean;
+    todayEarnedXp?: number;
   } | null>(null);
+
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -87,7 +92,10 @@ function DiaryWriteContent() {
         setSearchResults(data.items.slice(0, 8));
       }
     });
+
+    setTodayEarnedXp(diaryService.getTodayEarnedDiaryXp());
   }, []);
+
 
   // 검색 실행 핸들러
   const handleSearch = useCallback(async (keyword: string) => {
@@ -119,7 +127,7 @@ function DiaryWriteContent() {
     }
   }, [shortsPool]);
 
-  // 사진 파일 선택 핸들러
+  // 사진 파일 선택 핸들러 (스마트폰 원본 사진 용량 압축 처리)
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -127,8 +135,45 @@ function DiaryWriteContent() {
     soundService.playButtonClick();
     const reader = new FileReader();
     reader.onload = (uploadEvent) => {
-      const base64 = uploadEvent.target?.result as string;
-      setPhotoUrl(base64);
+      const rawBase64 = uploadEvent.target?.result as string;
+      if (!rawBase64) return;
+
+      // 이미지 용량 압축: 모바일 카메라 사진(10~20MB)을 브라우저 캔버스로 리사이징 (최대 폭 800px, 퀄리티 0.7)
+      const img = new Image();
+      img.onload = () => {
+        const maxWidth = 800;
+        const maxHeight = 800;
+        let width = img.width;
+        let height = img.height;
+
+        if (width > height) {
+          if (width > maxWidth) {
+            height = Math.round((height * maxWidth) / width);
+            width = maxWidth;
+          }
+        } else {
+          if (height > maxHeight) {
+            width = Math.round((width * maxHeight) / height);
+            height = maxHeight;
+          }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressed = canvas.toDataURL('image/jpeg', 0.72);
+          setPhotoUrl(compressed);
+        } else {
+          setPhotoUrl(rawBase64);
+        }
+      };
+      img.onerror = () => {
+        setPhotoUrl(rawBase64);
+      };
+      img.src = rawBase64;
     };
     reader.readAsDataURL(file);
   };
@@ -156,16 +201,21 @@ function DiaryWriteContent() {
       });
 
       soundService.playPaymentSuccess();
+      setTodayEarnedXp(res.todayEarnedXp);
       setResultData({
         earnedXp: res.earnedXp,
+        rawEarnedXp: res.rawEarnedXp,
         streakBonus: res.streakBonus,
         isLevelUp: res.isLevelUp,
         newLevel: res.levelInfo.level,
         newLevelTitle: res.levelInfo.title,
-        recipeId: finalRecipeId
+        recipeId: finalRecipeId,
+        isDailyLimitReached: res.isDailyLimitReached,
+        todayEarnedXp: res.todayEarnedXp
       });
-    } catch (err) {
+    } catch (err: any) {
       console.error('일기 등록 실패:', err);
+      alert('일기 등록 중 오류가 발생했습니다: ' + (err?.message || '저장 공간을 확인해주세요.'));
     } finally {
       setIsSubmitting(false);
     }
@@ -182,7 +232,9 @@ function DiaryWriteContent() {
     setIsCustomMode(false);
     setSearchQuery('');
     setResultData(null);
+    setTodayEarnedXp(diaryService.getTodayEarnedDiaryXp());
   };
+
 
   return (
     <main className="min-h-screen bg-[#0A1A12] text-[#FDFBF4] pb-24 selection:bg-[#D4AF37] selection:text-[#1B4731]">
@@ -242,7 +294,9 @@ function DiaryWriteContent() {
             <div className="w-full bg-[#0D2418]/95 rounded-2xl p-5 border border-[#D4AF37]/40 flex flex-col gap-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs sm:text-sm text-[#D9D2BE]">기본 요리 인증 경험치</span>
-                <span className="text-sm sm:text-base font-extrabold text-[#D4AF37]">+100 XP</span>
+                <span className="text-sm sm:text-base font-extrabold text-[#D4AF37]">
+                  {resultData.earnedXp === 0 ? '0 XP (일일 한도 달성)' : '+100 XP'}
+                </span>
               </div>
 
               {resultData.streakBonus > 0 && (
@@ -251,16 +305,32 @@ function DiaryWriteContent() {
                     <Flame size={15} />
                     <span>연속 집밥 스트릭 보너스</span>
                   </span>
-                  <span className="text-sm sm:text-base font-extrabold text-orange-400">+{resultData.streakBonus} XP</span>
+                  <span className="text-sm sm:text-base font-extrabold text-orange-400">
+                    +{resultData.streakBonus} XP
+                  </span>
                 </div>
               )}
 
               <div className="flex items-center justify-between border-t border-[#D4AF37]/30 pt-3">
                 <span className="text-xs sm:text-sm font-bold text-[#FDFBF4]">총 획득 경험치</span>
                 <span className="text-base sm:text-lg font-black text-[#D4AF37]">
-                  +{resultData.earnedXp} XP 획득! 🚀
+                  +{resultData.earnedXp} XP 획득! {resultData.earnedXp > 0 ? '🚀' : '✨'}
                 </span>
               </div>
+
+              {/* Daily Limit Status Indicator */}
+              <div className="mt-1 pt-2.5 border-t border-[#D4AF37]/15 flex items-center justify-between text-[11px] text-[#D9D2BE]/80">
+                <span>오늘의 일기 경험치 한도</span>
+                <span className="font-bold text-[#D4AF37]">
+                  {resultData.todayEarnedXp ?? todayEarnedXp} / {DAILY_MAX_DIARY_XP} XP
+                </span>
+              </div>
+
+              {resultData.isDailyLimitReached && (
+                <p className="text-[11px] text-amber-300/90 bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl text-left leading-relaxed">
+                  💡 오늘 획득 가능한 일일 경험치 한도(400 XP)를 모두 달성했습니다! 내일 또 요리하고 경험치를 받아보세요. (일기 기록은 제한 없이 계속 가능합니다)
+                </p>
+              )}
             </div>
 
             {/* Level Up Notification */}
@@ -327,15 +397,24 @@ function DiaryWriteContent() {
                   오늘의 혼밥 일기 남기기 📸
                 </h1>
                 <p className="text-xs sm:text-sm text-[#D9D2BE] mt-1">
-                  직접 찍은 요리 사진과 10자 이상의 솔직한 한줄평을 남기면 <strong className="text-[#D4AF37]">+100 XP</strong>와 연속 스트릭이 즉시 지급됩니다.
+                  직접 찍은 요리 사진과 10자 이상의 솔직한 한줄평을 남기면 <strong className="text-[#D4AF37]">+100 XP</strong>와 연속 스트릭이 즉시 지급됩니다. (하루 최대 400 XP)
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 self-start sm:self-auto bg-[#133624] border border-[#D4AF37]/30 px-3.5 py-2 rounded-2xl text-xs text-[#D4AF37] font-extrabold shadow-sm">
-                <Sparkles size={14} />
-                <span>기본 인증 +100 XP</span>
+              {/* Daily Quota Badge */}
+              <div className="flex flex-col sm:items-end gap-1">
+                <div className="flex items-center gap-2 bg-[#133624] border border-[#D4AF37]/30 px-3.5 py-2 rounded-2xl text-xs text-[#D4AF37] font-extrabold shadow-sm">
+                  <Sparkles size={14} />
+                  <span>오늘 획득: {todayEarnedXp} / {DAILY_MAX_DIARY_XP} XP</span>
+                </div>
+                {todayEarnedXp >= DAILY_MAX_DIARY_XP && (
+                  <span className="text-[10px] text-amber-300/80 font-medium">
+                    오늘 한도 달성 (일기 등록은 계속 가능)
+                  </span>
+                )}
               </div>
             </div>
+
 
             {/* 2-Column Responsive Form */}
             <form onSubmit={handleSubmit} className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
