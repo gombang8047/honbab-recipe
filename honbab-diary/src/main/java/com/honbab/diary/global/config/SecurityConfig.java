@@ -59,7 +59,10 @@ public class SecurityConfig {
                 "http://127.0.0.1:*",
                 "http://172.20.*:*",
                 "http://192.168.*:*",
-                "http://10.*:*"
+                "http://10.*:*",
+                "https://honbabrecipe.kro.kr",
+                "https://*.honbabrecipe.kro.kr",
+                "https://*.vercel.app"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
