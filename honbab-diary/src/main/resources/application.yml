@@ -35,8 +35,8 @@ openai:
   api-key: ${OPENAI_API_KEY:MOCK_KEY}
 
 kakao:
-  client-id: ${KAKAO_CLIENT_ID:MOCK_KEY}
-  client-secret: ${KAKAO_CLIENT_SECRET:MOCK_KEY}
+  client-id: ${KAKAO_CLIENT_ID:205c8310126b67c0479b663e5bfa0745}
+  client-secret: ${KAKAO_CLIENT_SECRET:YOT6UgzyJs70b2ZXhdl2AmWPTuAVGQ81}
   admin-key: ${KAKAO_ADMIN_KEY:MOCK_KEY}
 
 springdoc:
