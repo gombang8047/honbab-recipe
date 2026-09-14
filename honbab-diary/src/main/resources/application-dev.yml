@@ -4,15 +4,15 @@ spring:
       on-profile: dev
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/honbab_diary
-    username: honbab
-    password: ${DB_PASSWORD:honbab1234}
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/honbab_diary}
+    username: ${SPRING_DATASOURCE_USERNAME:honbab}
+    password: ${SPRING_DATASOURCE_PASSWORD:${DB_PASSWORD:honbab1234}}
     driver-class-name: org.postgresql.Driver
 
   data:
     redis:
-      host: localhost
-      port: 6379
+      host: ${SPRING_DATA_REDIS_HOST:localhost}
+      port: ${SPRING_DATA_REDIS_PORT:6379}
 
   jpa:
     show-sql: true
