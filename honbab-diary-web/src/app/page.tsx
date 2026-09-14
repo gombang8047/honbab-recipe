@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback, Suspense } from 'react';
 import { ShortsItem, shortsApi } from '@/services/shortsApi';
 import { recipeApi } from '@/services/recipeApi';
 import { ShortsCard } from '@/components/ShortsCard';
@@ -11,7 +11,7 @@ import { Sparkles, TrendingUp, Filter, Loader2, Search, X, Utensils, RotateCw, F
 
 const PAGE_SIZE = 8;
 
-export default function HomePage() {
+function HomeContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const searchQuery = searchParams?.get('q') || '';
@@ -469,5 +469,20 @@ export default function HomePage() {
         isReady={isNavigatingToRecipe}
       />
     </div>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="w-full max-w-7xl mx-auto px-4 py-16 min-h-[60vh] flex flex-col items-center justify-center gap-4">
+          <div className="w-10 h-10 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[#D9D2BE] text-sm font-medium">혼밥 요리 피드를 불러오는 중...</p>
+        </div>
+      }
+    >
+      <HomeContent />
+    </Suspense>
   );
 }
