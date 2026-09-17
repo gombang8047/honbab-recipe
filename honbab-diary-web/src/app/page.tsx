@@ -190,12 +190,12 @@ function HomeContent() {
       const targetUrl = `/recipe/${recipe.id}?youtubeId=${encodeURIComponent(shorts.youtubeId)}`;
       router.prefetch(targetUrl);
       router.push(targetUrl);
-    } catch (err) {
-      console.error('레시피 변환 실패, 기본 레시피로 이동:', err);
-      setIsNavigatingToRecipe(true);
-      const targetUrl = `/recipe/1?youtubeId=${encodeURIComponent(shorts.youtubeId)}`;
-      router.prefetch(targetUrl);
-      router.push(targetUrl);
+    } catch (err: any) {
+      console.error('레시피 변환 실패:', err);
+      setConvertingShorts(null);
+      setIsNavigatingToRecipe(false);
+      const msg = err?.message || err?.error || 'AI 레시피 생성에 실패했습니다. 다시 시도해주세요.';
+      alert(`[AI 레시피 생성 실패]\n${msg}`);
     }
   };
 

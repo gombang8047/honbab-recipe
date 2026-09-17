@@ -99,8 +99,11 @@ public class AiRecipeService {
             log.info("Gemini 1.5 Flash 레시피 변환 및 DB 적재 완료: shortsId={}, recipeId={}", shortsId, saved.getId());
             return RecipeDetailResponse.from(saved);
 
+        } catch (BusinessException be) {
+            log.error("AI 레시피 변환 실패: shortsId={}, error={}", shortsId, be.getMessage());
+            throw be;
         } catch (Exception e) {
-            log.error("AI 레시피 변환 실패: shortsId={}", shortsId, e);
+            log.error("AI 레시피 변환 실패: shortsId={}, error={}", shortsId, e.getMessage(), e);
             throw new BusinessException(ErrorCode.AI_CONVERSION_FAILED,
                     "AI 레시피 변환에 실패했습니다: " + e.getMessage());
         }
