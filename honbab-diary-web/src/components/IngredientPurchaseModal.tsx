@@ -64,7 +64,7 @@ export const IngredientPurchaseModal: React.FC<IngredientPurchaseModalProps> = (
       /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
     if (!isMobile) {
-      window.open(url, '_blank', 'noopener,noreferrer');
+      deepLinkService.openWebDirect(url);
       return;
     }
 

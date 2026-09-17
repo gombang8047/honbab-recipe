@@ -65,7 +65,13 @@ export const deepLinkService = {
 
   openWebDirect(webUrl: string) {
     if (typeof window === 'undefined') return;
-    window.location.href = webUrl;
+    const a = document.createElement('a');
+    a.href = webUrl;
+    a.target = '_blank';
+    a.rel = 'noreferrer noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   },
 
   openPlatform(
@@ -80,9 +86,9 @@ export const deepLinkService = {
     const isIOS = /iPhone|iPad|iPod/i.test(userAgent);
     const isMobile = isAndroid || isIOS;
 
-    // 1. PC 및 데스크톱 환경: 새 탭에서 웹사이트 열기
+    // 1. PC 및 데스크톱 환경: 새 탭에서 웹사이트 열기 (Referer 제거하여 쿠팡 차단 방지)
     if (!isMobile) {
-      window.open(fallbackWebUrl, '_blank', 'noopener');
+      this.openWebDirect(fallbackWebUrl);
       return;
     }
 

@@ -138,7 +138,7 @@ export default function CartPage() {
       /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
     if (!isMobile) {
-      window.open(webUrl, '_blank', 'noopener');
+      deepLinkService.openWebDirect(webUrl);
       return;
     }
 
@@ -426,6 +426,8 @@ export default function CartPage() {
                             <div className="grid grid-cols-2 gap-2 w-full pt-1 md:hidden">
                               <a
                                 href={pricing.coupangUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   handlePlatformClick('coupang', item.name, pricing.coupangUrl);
@@ -444,6 +446,8 @@ export default function CartPage() {
 
                               <a
                                 href={pricing.kurlyUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   handlePlatformClick('kurly', item.name, pricing.kurlyUrl);
@@ -465,6 +469,8 @@ export default function CartPage() {
                             <div className="hidden md:flex md:items-center md:gap-2.5 shrink-0">
                               <a
                                 href={pricing.coupangUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   handlePlatformClick('coupang', item.name, pricing.coupangUrl);
@@ -482,6 +488,8 @@ export default function CartPage() {
 
                               <a
                                 href={pricing.kurlyUrl}
+                                target="_blank"
+                                rel="noreferrer noopener"
                                 onClick={(e) => {
                                   e.preventDefault();
                                   handlePlatformClick('kurly', item.name, pricing.kurlyUrl);
