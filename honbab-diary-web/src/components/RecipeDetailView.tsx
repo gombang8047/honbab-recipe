@@ -66,6 +66,14 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
   const [pipPos, setPipPos] = useState<{ x: number; y: number } | null>(null);
   const [isDraggingPip, setIsDraggingPip] = useState<boolean>(false);
   const pipRef = useRef<HTMLDivElement>(null);
+  const rightScrollRef = useRef<HTMLDivElement>(null);
+
+  const handleLeftWheel = (e: React.WheelEvent) => {
+    if (rightScrollRef.current) {
+      rightScrollRef.current.scrollTop += e.deltaY;
+    }
+  };
+
   const dragStartRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number }>({
     startX: 0,
     startY: 0,
@@ -327,9 +335,12 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
           const embedUrl = `https://www.youtube.com/embed/${encodeURIComponent(cleanId)}?autoplay=1&mute=1&playsinline=1&rel=0&modestbranding=1&enablejsapi=1${origin ? `&origin=${encodeURIComponent(origin)}` : ''}`;
 
           return (
-            <div className="lg:col-span-5 xl:col-span-4 lg:h-full lg:flex lg:flex-col lg:justify-start lg:min-h-0">
-              <div className="p-4 sm:p-5 rounded-3xl flex flex-col gap-3 border border-[#D4AF37]/30 bg-[#133624] shadow-2xl lg:h-full lg:min-h-0">
-                <div className="flex items-center justify-between">
+            <div
+              onWheel={handleLeftWheel}
+              className="lg:col-span-5 xl:col-span-5 lg:h-full lg:flex lg:flex-col lg:justify-start lg:min-h-0"
+            >
+              <div className="p-4 sm:p-5 rounded-3xl flex flex-col gap-3 border border-[#D4AF37]/30 bg-[#133624] shadow-2xl lg:h-full lg:min-h-0 overflow-hidden">
+                <div className="flex items-center justify-between shrink-0">
                   <h2 className="text-sm font-bold text-[#FDFBF4] flex items-center gap-2">
                     <Youtube size={18} className="text-[#D4AF37]" />
                     <span>원본 쇼츠 영상</span>
@@ -359,38 +370,40 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                   </div>
                 </div>
 
-                {/* 9:16 Shorts Player - Fits comfortably within viewport */}
-                {!isPipMode ? (
-                  <div className="relative w-full max-w-[340px] lg:max-w-none lg:w-auto lg:h-full lg:flex-1 lg:min-h-0 aspect-[9/16] mx-auto rounded-2xl overflow-hidden bg-black shadow-2xl border border-[#D4AF37]/25">
-                    <iframe
-                      src={embedUrl}
-                      title="원본 쇼츠 영상"
-                      className="w-full h-full border-0"
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                      allowFullScreen
-                    />
-                  </div>
-                ) : (
-                  <div className="w-full max-w-[280px] sm:max-w-[340px] xl:max-w-[360px] mx-auto aspect-[9/16] max-h-[260px] rounded-2xl bg-[#0D2418]/90 border border-dashed border-[#D4AF37]/40 flex flex-col items-center justify-center p-4 text-center gap-3">
-                    <div className="w-12 h-12 rounded-full bg-[#1B4731] flex items-center justify-center text-[#D4AF37] shadow-inner">
-                      <PictureInPicture2 size={24} className="animate-pulse" />
+                {/* 9:16 Shorts Player - Vertically and horizontally centered without overflowing card on large screens */}
+                <div className="flex-1 min-h-0 w-full flex items-center justify-center py-1">
+                  {!isPipMode ? (
+                    <div className="relative w-full max-w-[340px] xl:max-w-[360px] aspect-[9/16] max-h-[min(650px,calc(100vh-13rem))] mx-auto rounded-2xl overflow-hidden bg-black shadow-2xl border border-[#D4AF37]/25 shrink-0">
+                      <iframe
+                        src={embedUrl}
+                        title="원본 쇼츠 영상"
+                        className="w-full h-full border-0"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                        allowFullScreen
+                      />
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-[#FDFBF4]">미니 플레이어로 재생 중</p>
-                      <p className="text-[11px] text-[#D9D2BE]/80 mt-1">
-                        화면 우측 하단에서 영상이 계속 재생됩니다.
-                      </p>
+                  ) : (
+                    <div className="w-full max-w-[280px] sm:max-w-[340px] xl:max-w-[360px] mx-auto aspect-[9/16] max-h-[260px] rounded-2xl bg-[#0D2418]/90 border border-dashed border-[#D4AF37]/40 flex flex-col items-center justify-center p-4 text-center gap-3 shrink-0">
+                      <div className="w-12 h-12 rounded-full bg-[#1B4731] flex items-center justify-center text-[#D4AF37] shadow-inner">
+                        <PictureInPicture2 size={24} className="animate-pulse" />
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-[#FDFBF4]">미니 플레이어로 재생 중</p>
+                        <p className="text-[11px] text-[#D9D2BE]/80 mt-1">
+                          화면 우측 하단에서 영상이 계속 재생됩니다.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setIsPipMode(false)}
+                        className="text-xs px-3 py-1.5 rounded-xl bg-[#D4AF37] text-[#0D2418] font-bold hover:bg-[#c39f2f] transition-all flex items-center gap-1.5 shadow-md"
+                      >
+                        <Maximize2 size={13} />
+                        <span>원래 위치로 복귀</span>
+                      </button>
                     </div>
-                    <button
-                      type="button"
-                      onClick={() => setIsPipMode(false)}
-                      className="text-xs px-3 py-1.5 rounded-xl bg-[#D4AF37] text-[#0D2418] font-bold hover:bg-[#c39f2f] transition-all flex items-center gap-1.5 shadow-md"
-                    >
-                      <Maximize2 size={13} />
-                      <span>원래 위치로 복귀</span>
-                    </button>
-                  </div>
-                )}
+                  )}
+                </div>
               </div>
             </div>
           );
@@ -399,7 +412,10 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
         {/* =========================================================================
             우측: 레시피 본문 (PC에서는 독립 스크롤되어 좌측 영상이 움직이지 않음)
            ========================================================================= */}
-        <div className={`${recipe.shortsYoutubeId ? 'lg:col-span-7 xl:col-span-8' : 'w-full'} flex flex-col gap-6 lg:h-full lg:overflow-y-auto lg:pr-3 lg:pb-6 custom-scrollbar min-h-0`}>
+        <div
+          ref={rightScrollRef}
+          className={`${recipe.shortsYoutubeId ? 'lg:col-span-7 xl:col-span-7' : 'w-full'} flex flex-col gap-6 lg:h-full lg:overflow-y-auto lg:pr-3 lg:pb-6 custom-scrollbar min-h-0`}
+        >
           {/* 1. Header Info Card */}
           <div className="p-6 sm:p-8 rounded-3xl flex flex-col gap-4 border border-[#D4AF37]/30 bg-[#133624] shadow-xl relative">
             <div className="flex items-center justify-between">
