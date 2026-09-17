@@ -29,7 +29,7 @@ youtube:
   api-key: ${YOUTUBE_API_KEY:MOCK_KEY}
 
 gemini:
-  api-key: ${GEMINI_API_KEY:MOCK_KEY}
+  api-key: ${GEMINI_API_KEY:AQ.Ab8RN6KWyU73mCyuABcXGRvFW8mgDv3ZnmHGNIUU4tTMaHXNQQ}
 
 openai:
   api-key: ${OPENAI_API_KEY:MOCK_KEY}

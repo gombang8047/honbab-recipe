@@ -62,7 +62,8 @@ public class SecurityConfig {
                 "http://10.*:*",
                 "https://honbabrecipe.kro.kr",
                 "https://*.honbabrecipe.kro.kr",
-                "https://*.vercel.app"
+                "https://*.vercel.app",
+                "https://*.cloudtype.app"
         ));
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
