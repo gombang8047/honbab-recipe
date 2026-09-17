@@ -819,9 +819,9 @@ export function getIngredientPricing(
 
   const db = matchedKey ? INGREDIENT_UNIT_DB[matchedKey] : fallback;
 
-  // 재료명 그대로 순수 검색 (인기순/판매량순 정렬 파라미터 적용)
+  // 재료명 그대로 순수 검색 (정상 사용자 검색 채널 파라미터 적용)
   const makeCoupangUrl = (q: string) =>
-    `https://www.coupang.com/np/search?component=&q=${encodeURIComponent(q)}&sorter=saleCountDesc`;
+    `https://www.coupang.com/np/search?component=&q=${encodeURIComponent(q)}&channel=user`;
   const makeKurlyUrl = (q: string) =>
     `https://www.kurly.com/search?sword=${encodeURIComponent(q)}`;
 
