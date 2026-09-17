@@ -12,12 +12,19 @@ function RecipeContent() {
   const queryYoutubeId = searchParams.get('youtubeId');
 
   const recipeId = Number(params?.id) || 1;
-  const cachedRecipe = recipeApi.getCached(recipeId);
-  const [recipe, setRecipe] = useState<RecipeDetail | null>(cachedRecipe);
-  const [loading, setLoading] = useState(!cachedRecipe);
+  const [mounted, setMounted] = useState(false);
+  const [recipe, setRecipe] = useState<RecipeDetail | null>(null);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    setMounted(true);
+    const cached = recipeApi.getCached(recipeId);
+    if (cached) {
+      setRecipe(cached);
+      setLoading(false);
+    }
+
     recipeApi.getDetail(recipeId)
       .then((data) => {
         // 쿼리 파라미터 또는 세션스토리지에 저장된 실제 쇼츠 ID를 레시피에 주입
@@ -42,7 +49,7 @@ function RecipeContent() {
     router.push('/cart');
   };
 
-  if (loading) {
+  if (!mounted || loading) {
     return (
       <div className="max-w-4xl mx-auto p-8 text-center flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <div className="w-12 h-12 border-4 border-[#D4AF37] border-t-transparent rounded-full animate-spin" />

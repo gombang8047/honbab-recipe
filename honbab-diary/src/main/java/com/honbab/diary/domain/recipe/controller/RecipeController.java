@@ -35,7 +35,17 @@ public class RecipeController {
     @GetMapping("/recipes/{id}")
     public ResponseEntity<ApiResponse<RecipeDetailResponse>> getRecipeDetail(
             @PathVariable Long id) {
-        return ResponseEntity.ok(ApiResponse.ok(recipeService.getRecipeDetail(id)));
+        RecipeDetailResponse response;
+        try {
+            response = recipeService.getRecipeDetail(id);
+        } catch (com.honbab.diary.global.exception.BusinessException be) {
+            if (be.getErrorCode() == com.honbab.diary.global.exception.ErrorCode.RECIPE_NOT_FOUND) {
+                response = aiRecipeService.convertShortsToRecipe(id);
+            } else {
+                throw be;
+            }
+        }
+        return ResponseEntity.ok(ApiResponse.ok(response));
     }
 
     @Operation(summary = "재료 목록 조회", description = "레시피의 재료 목록을 조회합니다.")
