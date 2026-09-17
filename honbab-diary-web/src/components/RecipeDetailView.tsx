@@ -198,10 +198,15 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
 
   // 일기 목록 로드 및 실시간 동기화
   useEffect(() => {
-    setDiaries(diaryService.getDiariesByRecipe(recipe.id));
+    // 레시피가 생성되어 shortsId와 id가 모두 있을 때, 이전에 쇼츠 번호로 작성된 일기들의 ID 자동 동기화
+    if (recipe.shortsId && recipe.id) {
+      diaryService.syncRecipeIdForDiaries(recipe.shortsId, recipe.id);
+    }
+
+    setDiaries(diaryService.getDiariesByRecipe(recipe.id, recipe.shortsId));
 
     const handleDiaryChanged = () => {
-      setDiaries(diaryService.getDiariesByRecipe(recipe.id));
+      setDiaries(diaryService.getDiariesByRecipe(recipe.id, recipe.shortsId));
     };
 
     window.addEventListener('diary-added', handleDiaryChanged as EventListener);
@@ -210,12 +215,12 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
       window.removeEventListener('diary-added', handleDiaryChanged as EventListener);
       window.removeEventListener('diary-updated', handleDiaryChanged as EventListener);
     };
-  }, [recipe.id]);
+  }, [recipe.id, recipe.shortsId]);
 
   const handleToggleLike = (diaryId: string) => {
     soundService.playButtonClick();
-    const updated = diaryService.toggleLike(diaryId);
-    setDiaries(updated.filter((d) => d.recipeId === recipe.id));
+    diaryService.toggleLike(diaryId);
+    setDiaries(diaryService.getDiariesByRecipe(recipe.id, recipe.shortsId));
   };
 
   useEffect(() => {
@@ -794,8 +799,8 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
                     </div>
 
                     {/* Review comment text */}
-                    <div className="bg-[#0D2418]/70 p-3 rounded-xl border border-[#D4AF37]/15 text-xs text-[#E7E2D3] leading-relaxed italic">
-                      &ldquo;{diary.comment}&rdquo;
+                    <div className="bg-[#0D2418]/70 p-3 rounded-xl border border-[#D4AF37]/15 text-xs text-[#E7E2D3] leading-relaxed">
+                      {diary.comment}
                     </div>
                   </div>
                 ))}
