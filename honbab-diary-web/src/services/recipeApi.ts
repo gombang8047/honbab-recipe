@@ -87,16 +87,12 @@ export const recipeApi = {
     if (recipeCache.has(recipeId)) {
       return recipeCache.get(recipeId)!;
     }
-    try {
-      const res: any = await apiClient.get(`/recipes/${recipeId}`);
-      const data = res.data || res;
-      if (data && data.id) {
-        recipeCache.set(data.id, data);
-      }
-      return data;
-    } catch {
-      return MOCK_RECIPE;
+    const res: any = await apiClient.get(`/recipes/${recipeId}`);
+    const data = res.data || res;
+    if (data && data.id) {
+      recipeCache.set(data.id, data);
     }
+    return data;
   }
 };
 

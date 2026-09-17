@@ -28,15 +28,15 @@ public class GeminiApiClient {
     private String apiKey;
 
     private static final String GEMINI_URL_TEMPLATE =
-            "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=%s";
+            "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=%s";
 
     /**
      * Gemini 1.5 Flash로 유튜브 쇼츠 설명/댓글/자막 텍스트를 분석하여 정밀한 레시피 JSON 생성
      */
     public String generateRecipeJson(String prompt, String youtubeId, String fallbackTitle) {
         if (apiKey == null || apiKey.isBlank() || "MOCK_KEY".equalsIgnoreCase(apiKey)) {
-            log.info("[MOCK] Gemini API Key 미설정으로 스마트 템플릿 레시피를 생성합니다. title={}", fallbackTitle);
-            return generateSmartFallbackJson(fallbackTitle);
+            log.error("Gemini API Key 미설정: AI 레시피 변환 불가");
+            throw new BusinessException(ErrorCode.AI_CONVERSION_FAILED, "Gemini API 키가 설정되지 않았습니다.");
         }
 
         try {
@@ -58,7 +58,7 @@ public class GeminiApiClient {
 
             HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
 
-            log.info("Gemini 1.5 Flash 레시피 분석 API 호출 시작... (youtubeId={}, title={})", youtubeId, fallbackTitle);
+            log.info("Gemini 3.5 Flash 레시피 분석 API 호출 시작... (youtubeId={}, title={})", youtubeId, fallbackTitle);
             ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
 
             if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
@@ -71,25 +71,43 @@ public class GeminiApiClient {
                             .get(0)
                             .path("text");
                     if (!textNode.isMissingNode() && !textNode.asText().isBlank()) {
-                        log.info("Gemini 1.5 Flash AI 레시피 추출 성공!");
-                        return textNode.asText();
+                        log.info("Gemini 3.5 Flash AI 레시피 추출 성공!");
+                        return cleanJsonText(textNode.asText());
                     }
                 }
             }
+            throw new BusinessException(ErrorCode.AI_CONVERSION_FAILED, "Gemini AI로부터 유효한 레시피 응답을 받지 못했습니다.");
+        } catch (BusinessException be) {
+            throw be;
         } catch (Exception e) {
-            log.error("Gemini 호출 중 오류 발생: {}. 쇼츠 맞춤형 스마트 템플릿으로 대체합니다.", e.getMessage());
+            log.error("Gemini 호출 중 오류 발생: {}", e.getMessage(), e);
+            throw new BusinessException(ErrorCode.AI_CONVERSION_FAILED, "Gemini AI 레시피 변환에 실패했습니다: " + e.getMessage());
         }
+    }
 
-        return generateSmartFallbackJson(fallbackTitle);
+    private String cleanJsonText(String raw) {
+        if (raw == null) return "{}";
+        String trimmed = raw.trim();
+        if (trimmed.startsWith("```json")) {
+            trimmed = trimmed.substring(7);
+        } else if (trimmed.startsWith("```")) {
+            trimmed = trimmed.substring(3);
+        }
+        if (trimmed.endsWith("```")) {
+            trimmed = trimmed.substring(0, trimmed.length() - 3);
+        }
+        return trimmed.trim();
     }
 
     /**
      * AI 호출 실패 또는 키 미설정 시, 영상 제목의 핵심 키워드를 정밀 분석하여
      * 요리에 딱 맞는 실제 재료와 조리 순서를 동적으로 생성하는 스마트 엔진
      */
-    private String generateSmartFallbackJson(String title) {
+    public String generateSmartFallbackJson(String title) {
         String safeTitle = (title != null && !title.isBlank()) ? title : "초간단 자취요리";
-        String lower = safeTitle.toLowerCase();
+        // 유튜브에서 크롤링된 한글 유니코드 자모 분리(NFD: 라면) 현상을 표준 완성형(NFC: 라면)으로 정규화
+        String normalizedTitle = java.text.Normalizer.normalize(safeTitle, java.text.Normalizer.Form.NFC);
+        String lower = normalizedTitle.toLowerCase();
 
         String description;
         int cookTime = 5;
@@ -200,24 +218,86 @@ public class GeminiApiClient {
               { "order": 3, "description": "김가루와 깨를 솔솔 뿌려 골고루 비벼 먹는다.", "timer_seconds": 0 }
             ]
             """;
-        } else {
-            description = "자취생을 위한 빠르고 든든한 맞춤형 1인분 요리 레시피";
-            cookTime = 5;
-            cost = 3500;
+        } else if (lower.contains("제육") || lower.contains("삼겹살") || lower.contains("돼지") || lower.contains("고기")) {
+            description = "매콤달콤한 양념으로 센 불에 볶아내는 1인분 제육/고기 요리";
+            cookTime = 8;
+            cost = 4800;
             ingredientsJson = """
             [
-              { "name": "밥", "amount": "1", "unit": "공기", "is_essential": true, "estimated_price": 1100 },
-              { "name": "계란", "amount": "2", "unit": "개", "is_essential": true, "estimated_price": 600 },
-              { "name": "대파", "amount": "1/2", "unit": "대", "is_essential": true, "estimated_price": 400 },
-              { "name": "진간장", "amount": "1", "unit": "큰술", "is_essential": true, "estimated_price": 200 },
-              { "name": "참기름", "amount": "1/2", "unit": "큰술", "is_essential": false, "estimated_price": 300 }
+              { "name": "돼지고기(앞다리/삼겹)", "amount": "150", "unit": "g", "is_essential": true, "estimated_price": 2500 },
+              { "name": "대파", "amount": "1/2", "unit": "대", "is_essential": true, "estimated_price": 300 },
+              { "name": "양파", "amount": "1/2", "unit": "개", "is_essential": true, "estimated_price": 300 },
+              { "name": "고추장", "amount": "1", "unit": "큰술", "is_essential": true, "estimated_price": 300 },
+              { "name": "진간장", "amount": "1", "unit": "큰술", "is_essential": true, "estimated_price": 100 },
+              { "name": "다진마늘", "amount": "1/2", "unit": "큰술", "is_essential": false, "estimated_price": 200 }
             ]
             """;
             stepsJson = """
             [
-              { "order": 1, "description": "팬에 식용유를 두르고 썰어둔 대파를 볶아 향긋한 파기름을 낸다.", "timer_seconds": 45 },
-              { "order": 2, "description": "간장 1큰술을 눌어붙듯이 태워 풍미를 올린 후 주재료와 함께 볶는다.", "timer_seconds": 60 },
-              { "order": 3, "description": "풀어둔 계란을 넣어 고소하게 익힌 후 참기름을 둘러 불을 끈다.", "timer_seconds": 45 }
+              { "order": 1, "description": "팬을 달군 뒤 고기를 넣고 센 불에 겉면을 노릇하게 굽는다.", "timer_seconds": 120 },
+              { "order": 2, "description": "설탕 1스푼을 고기 기름에 눌어붙듯이 볶아 불향을 입힌다.", "timer_seconds": 45 },
+              { "order": 3, "description": "고추장, 간장, 다진마늘과 썰어둔 채소를 넣고 강불에 빠르게 볶아 완성한다.", "timer_seconds": 120 }
+            ]
+            """;
+        } else if (lower.contains("떡볶이")) {
+            description = "매콤달콤한 소스에 쫄깃한 떡이 어우러진 1인분 분식 떡볶이";
+            cookTime = 8;
+            cost = 3000;
+            ingredientsJson = """
+            [
+              { "name": "떡볶이떡", "amount": "1", "unit": "줌(150g)", "is_essential": true, "estimated_price": 1000 },
+              { "name": "사각어묵", "amount": "1", "unit": "장", "is_essential": true, "estimated_price": 500 },
+              { "name": "고추장", "amount": "1.5", "unit": "큰술", "is_essential": true, "estimated_price": 300 },
+              { "name": "고춧가루", "amount": "1", "unit": "큰술", "is_essential": false, "estimated_price": 200 },
+              { "name": "설탕", "amount": "1", "unit": "큰술", "is_essential": true, "estimated_price": 100 },
+              { "name": "대파", "amount": "1/2", "unit": "대", "is_essential": false, "estimated_price": 300 }
+            ]
+            """;
+            stepsJson = """
+            [
+              { "order": 1, "description": "팬에 물 250ml와 고추장, 설탕, 고춧가루를 풀고 끓인다.", "timer_seconds": 90 },
+              { "order": 2, "description": "물이 끓으면 떡과 먹기 좋게 썬 어묵을 넣고 중불에 졸인다.", "timer_seconds": 240 },
+              { "order": 3, "description": "소스가 걸쭉해지면 송송 썬 대파를 넣고 한소끔 더 끓여 완성한다.", "timer_seconds": 60 }
+            ]
+            """;
+        } else if (lower.contains("토스트") || lower.contains("샌드위치") || lower.contains("빵")) {
+            description = "바삭한 식빵에 고소한 계란과 치즈가 녹아든 1인분 간편 토스트";
+            cookTime = 5;
+            cost = 2500;
+            ingredientsJson = """
+            [
+              { "name": "식빵", "amount": "2", "unit": "장", "is_essential": true, "estimated_price": 800 },
+              { "name": "계란", "amount": "1", "unit": "개", "is_essential": true, "estimated_price": 300 },
+              { "name": "슬라이스치즈", "amount": "1", "unit": "장", "is_essential": true, "estimated_price": 400 },
+              { "name": "버터", "amount": "1", "unit": "조각", "is_essential": true, "estimated_price": 300 },
+              { "name": "딸기잼/케첩", "amount": "1", "unit": "큰술", "is_essential": false, "estimated_price": 200 }
+            ]
+            """;
+            stepsJson = """
+            [
+              { "order": 1, "description": "팬에 버터를 녹이고 식빵을 앞뒤로 노릇하게 구워 꺼낸다.", "timer_seconds": 90 },
+              { "order": 2, "description": "같은 팬에 계란을 풀거나 부쳐 계란 프라이를 만든다.", "timer_seconds": 60 },
+              { "order": 3, "description": "구운 빵 사이에 치즈와 계란을 얹고 소스를 발라 덮는다.", "timer_seconds": 0 }
+            ]
+            """;
+        } else {
+            description = "영상에 맞춰 간단하고 빠르게 완성하는 자취생 맞춤 요리";
+            cookTime = 6;
+            cost = 3800;
+            ingredientsJson = """
+            [
+              { "name": "주재료", "amount": "1", "unit": "인분", "is_essential": true, "estimated_price": 2000 },
+              { "name": "대파", "amount": "1/2", "unit": "대", "is_essential": true, "estimated_price": 400 },
+              { "name": "다진마늘", "amount": "1/2", "unit": "큰술", "is_essential": false, "estimated_price": 200 },
+              { "name": "진간장", "amount": "1", "unit": "큰술", "is_essential": true, "estimated_price": 100 },
+              { "name": "식용유", "amount": "2", "unit": "큰술", "is_essential": true, "estimated_price": 200 }
+            ]
+            """;
+            stepsJson = """
+            [
+              { "order": 1, "description": "재료를 깨끗이 씻어 먹기 좋은 한 입 크기로 손질한다.", "timer_seconds": 60 },
+              { "order": 2, "description": "달궈진 팬에 식용유를 두르고 대파와 마늘을 볶아 향을 낸다.", "timer_seconds": 45 },
+              { "order": 3, "description": "주재료와 간장 양념을 넣고 중강불에서 골고루 볶아 완성한다.", "timer_seconds": 120 }
             ]
             """;
         }
