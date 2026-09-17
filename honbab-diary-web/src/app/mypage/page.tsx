@@ -490,15 +490,15 @@ export default function MyPage() {
                         <Calendar size={11} className="text-[#8C762E]" />
                         <span>{formatDate(diary.createdAt)}</span>
                       </span>
-                      {diary.recipeId > 0 && (
+                      {(diary.recipeId > 0 || (diary.shortsId && diary.shortsId > 0)) && (
                         <span className="text-[#1B4731] font-bold text-[10px] hover:underline">
                           레시피 보기 →
                         </span>
                       )}
                     </div>
 
-                    <p className="text-xs text-[#1B4731] font-medium line-clamp-2 leading-relaxed italic bg-[#1B4731]/5 p-2.5 rounded-xl border border-[#D4AF37]/30">
-                      &ldquo;{diary.comment}&rdquo;
+                    <p className="text-xs text-[#1B4731] font-medium line-clamp-2 leading-relaxed bg-[#1B4731]/5 p-2.5 rounded-xl border border-[#D4AF37]/30">
+                      {diary.comment}
                     </p>
 
                     {diary.privateDiary && (
@@ -766,8 +766,8 @@ export default function MyPage() {
                 <span>💡 한줄평 & 꿀팁</span>
                 <span className="text-[10px] text-[#D9D2BE]/70">(레시피 공개용)</span>
               </span>
-              <div className="bg-[#0D2418] p-3.5 rounded-2xl border border-[#D4AF37]/30 text-[#FDFBF4] text-xs leading-relaxed italic">
-                &ldquo;{selectedDiary.comment}&rdquo;
+              <div className="bg-[#0D2418] p-3.5 rounded-2xl border border-[#D4AF37]/30 text-[#FDFBF4] text-xs leading-relaxed">
+                {selectedDiary.comment}
               </div>
             </div>
 
@@ -818,11 +818,12 @@ export default function MyPage() {
                 </button>
               </div>
 
-              {selectedDiary.recipeId > 0 && (
+              {(selectedDiary.recipeId > 0 || (selectedDiary.shortsId && selectedDiary.shortsId > 0)) && (
                 <button
                   onClick={() => {
                     soundService.playButtonClick();
-                    router.push(`/recipe/${selectedDiary.recipeId}`);
+                    const targetId = selectedDiary.recipeId > 0 ? selectedDiary.recipeId : selectedDiary.shortsId;
+                    router.push(`/recipe/${targetId}`);
                   }}
                   className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] text-xs font-bold transition-all shadow-md active:scale-95"
                 >

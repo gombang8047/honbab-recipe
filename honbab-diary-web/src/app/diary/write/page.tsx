@@ -46,6 +46,7 @@ function DiaryWriteContent() {
 
   const [customTitle, setCustomTitle] = useState<string>(initialRecipeTitle);
   const [linkedRecipeId, setLinkedRecipeId] = useState<number>(initialRecipeId);
+  const [linkedShortsId, setLinkedShortsId] = useState<number>(0);
   const [linkedShortsThumbnail, setLinkedShortsThumbnail] = useState<string>('');
 
   // 숏츠 선택 탭: 'bookmark' (내가 찜한 숏츠) | 'search' (검색해서 찾기)
@@ -103,15 +104,22 @@ function DiaryWriteContent() {
     soundService.playButtonClick();
     setCustomTitle(item.title);
     setLinkedShortsThumbnail(item.thumbnailUrl);
-    setLinkedRecipeId(item.id);
+    setLinkedShortsId(item.id);
+    setLinkedRecipeId(0);
 
+    // 이미 DB 또는 캐시에 생성된 레시피가 있는지 가볍게 확인 (아직 없어도 쇼츠 ID로 즉시 안전 작성 가능)
     try {
-      const recipe = await recipeApi.convertToRecipe(item.id);
-      if (recipe && recipe.id) {
-        setLinkedRecipeId(recipe.id);
+      const cached = recipeApi.getCached(item.id);
+      if (cached && cached.id) {
+        setLinkedRecipeId(cached.id);
+      } else {
+        const recipe = await recipeApi.getDetail(item.id);
+        if (recipe && recipe.id) {
+          setLinkedRecipeId(recipe.id);
+        }
       }
-    } catch (err) {
-      console.warn('쇼츠 레시피 연동 중 변환 대기 (shortsId 유지):', err);
+    } catch {
+      // 레시피가 아직 AI로 생성되지 않았더라도 쇼츠 ID가 기록되므로 오류 없이 정상 작성됩니다.
     }
   };
 
@@ -208,9 +216,11 @@ function DiaryWriteContent() {
 
     try {
       const finalRecipeId = linkedRecipeId || initialRecipeId || 0;
+      const finalShortsId = linkedShortsId > 0 ? linkedShortsId : undefined;
       const finalTitle = customTitle.trim() || initialRecipeTitle || '오늘의 집밥 요리';
       const res = diaryService.addDiaryEntry({
         recipeId: finalRecipeId,
+        shortsId: finalShortsId,
         recipeTitle: finalTitle,
         photoUrl,
         rating,
@@ -245,6 +255,7 @@ function DiaryWriteContent() {
     setComment('');
     setPrivateDiary('');
     setLinkedRecipeId(0);
+    setLinkedShortsId(0);
     setCustomTitle('');
     setLinkedShortsThumbnail('');
     setIsCustomMode(false);

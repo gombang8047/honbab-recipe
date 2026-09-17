@@ -5,6 +5,7 @@
 export interface CookingDiaryEntry {
   id: string;
   recipeId: number;
+  shortsId?: number; // 연결된 쇼츠 영상 ID (레시피 생성 전 작성 시 매칭용)
   recipeTitle: string;
   photoUrl: string; // Base64 or URL
   rating: number; // 1 ~ 5
@@ -289,12 +290,45 @@ const getDiaries = (): CookingDiaryEntry[] => {
 
 /**
  * 특정 레시피에 해당하는 일기 목록 (최신순)
+ * - recipeId 일치 확인
+ * - shortsId 일치 확인 (레시피 생성 전 쇼츠 ID로 작성된 일기 및 과거 일기 완벽 호환)
  */
-const getDiariesByRecipe = (recipeId: number): CookingDiaryEntry[] => {
+const getDiariesByRecipe = (recipeId: number, shortsId?: number): CookingDiaryEntry[] => {
   const list = getDiaries();
   return list
-    .filter((d) => d.recipeId === recipeId)
+    .filter((d) => {
+      if (recipeId > 0 && d.recipeId === recipeId) return true;
+      if (shortsId && shortsId > 0) {
+        if (d.shortsId === shortsId) return true;
+        if (d.recipeId === shortsId) return true; // 기존에 shortsId가 recipeId에 들어갔던 과거 일기 호환
+      }
+      return false;
+    })
     .sort((a, b) => b.createdAt - a.createdAt);
+};
+
+/**
+ * 레시피 ID 동기화 (레시피 생성 전 쇼츠 ID로 작성된 일기들을 실제 생성된 레시피 ID로 자동 보정)
+ */
+const syncRecipeIdForDiaries = (shortsId: number, actualRecipeId: number) => {
+  if (typeof window === 'undefined' || !shortsId || !actualRecipeId) return;
+  try {
+    const list = getDiaries();
+    let updated = false;
+    const syncedList = list.map((d) => {
+      if ((d.shortsId === shortsId || d.recipeId === shortsId) && d.recipeId !== actualRecipeId) {
+        updated = true;
+        return { ...d, recipeId: actualRecipeId, shortsId: shortsId };
+      }
+      return d;
+    });
+    if (updated) {
+      localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(syncedList));
+      window.dispatchEvent(new CustomEvent('diary-updated'));
+    }
+  } catch (err) {
+    console.error('일기 레시피 ID 동기화 실패:', err);
+  }
 };
 
 /**
@@ -404,6 +438,7 @@ const getStreakDays = (): number => {
  */
 const addDiaryEntry = (params: {
   recipeId: number;
+  shortsId?: number;
   recipeTitle: string;
   photoUrl: string;
   rating: number;
@@ -452,6 +487,7 @@ const addDiaryEntry = (params: {
   const newEntry: CookingDiaryEntry = {
     id: `diary_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
     recipeId: params.recipeId,
+    shortsId: params.shortsId,
     recipeTitle: params.recipeTitle,
     photoUrl: params.photoUrl,
     rating: params.rating,
@@ -671,5 +707,6 @@ export const diaryService = {
   checkAndAwardLoginXp,
   getLoginAttendanceInfo,
   getTodayEarnedDiaryXp,
+  syncRecipeIdForDiaries,
 };
 
