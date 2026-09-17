@@ -36,7 +36,6 @@ import { soundService } from '@/services/soundService';
 import { diaryService, CookingDiaryEntry, UserLevelInfo, LEVEL_TIERS } from '@/services/diaryService';
 
 const POPULAR_DISLIKED_TAGS = ['오이', '당근', '가지', '고수', '피망', '버섯', '파프리카', '양파'];
-const POPULAR_ALLERGY_TAGS = ['갑각류', '땅콩', '우유/유제품', '대두(콩)', '밀가루/글루텐', '견과류', '메밀', '복숭아'];
 
 export default function MyPage() {
   const router = useRouter();
@@ -47,7 +46,6 @@ export default function MyPage() {
 
   const [settings, setSettings] = useState<AppSettings>(settingsService.getSettings());
   const [newDislikeInput, setNewDislikeInput] = useState<string>('');
-  const [newAllergyInput, setNewAllergyInput] = useState<string>('');
 
   const [recentBookmarks, setRecentBookmarks] = useState<ShortsItem[]>([]);
   const [bookmarkCount, setBookmarkCount] = useState<number>(0);
@@ -142,37 +140,7 @@ export default function MyPage() {
     }
   };
 
-  // 알레르기 토글/추가
-  const handleToggleAllergy = (tag: string) => {
-    soundService.playButtonClick();
-    const current = settings.dietary.allergies;
-    let next: string[];
-    if (current.includes(tag)) {
-      next = current.filter((t) => t !== tag);
-    } else {
-      next = [...current, tag];
-    }
-    const updated = settingsService.updateSettings({
-      dietary: { ...settings.dietary, allergies: next },
-    });
-    setSettings(updated);
-  };
 
-  const handleAddCustomAllergy = (e: React.FormEvent) => {
-    e.preventDefault();
-    const val = newAllergyInput.trim();
-    if (val && !settings.dietary.allergies.includes(val)) {
-      soundService.playButtonClick();
-      const updated = settingsService.updateSettings({
-        dietary: {
-          ...settings.dietary,
-          allergies: [...settings.dietary.allergies, val],
-        },
-      });
-      setSettings(updated);
-      setNewAllergyInput('');
-    }
-  };
 
   const handleLogout = async () => {
     soundService.playButtonClick();
@@ -577,21 +545,21 @@ export default function MyPage() {
         )}
       </div>
 
-      {/* 4. 기피 식재료 & 알레르기 관리 */}
+      {/* 4. 기피 식재료 관리 */}
       <div className="p-6 sm:p-8 rounded-3xl border border-[#D4AF37]/40 bg-[#133624] shadow-xl mb-8">
         <div className="flex items-center gap-3 pb-4 border-b border-[#D4AF37]/20 mb-6">
-          <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 border border-rose-500/20">
+          <div className="p-2.5 rounded-xl bg-orange-500/10 text-orange-400 border border-orange-500/20">
             <ShieldAlert size={22} />
           </div>
           <div>
-            <h2 className="text-lg font-bold text-[#FDFBF4]">기피 식재료 & 알레르기 관리</h2>
+            <h2 className="text-lg font-bold text-[#FDFBF4]">기피 식재료 관리</h2>
             <p className="text-xs text-[#D9D2BE]">
               선택한 식재료가 포함된 레시피를 열람할 때 주의 안내 배지를 표시해드립니다.
             </p>
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div>
           {/* 4-1. 기피 식재료 */}
           <div className="bg-[#0D2418] p-5 rounded-2xl border border-[#D4AF37]/30">
             <div className="flex items-center justify-between mb-3">
@@ -663,85 +631,6 @@ export default function MyPage() {
               <button
                 type="submit"
                 className="px-3.5 py-2 rounded-xl bg-[#D4AF37] hover:bg-[#C49F2C] text-[#1B4731] text-xs font-bold flex items-center gap-1 transition-colors"
-              >
-                <Plus size={14} />
-                <span>추가</span>
-              </button>
-            </form>
-          </div>
-
-          {/* 4-2. 알레르기 식재료 */}
-          <div className="bg-[#0D2418] p-5 rounded-2xl border border-[#D4AF37]/30">
-            <div className="flex items-center justify-between mb-3">
-              <span className="text-sm font-semibold text-rose-300 flex items-center gap-1.5">
-                <ShieldAlert size={15} />
-                식품 알레르기 유발 재료 (주의 필수)
-              </span>
-              <span className="text-xs text-[#D9D2BE]/80">
-                등록됨: {settings.dietary.allergies.length}개
-              </span>
-            </div>
-
-            {/* Selected Allergy Tags */}
-            <div className="flex flex-wrap gap-2 mb-4 min-h-[36px]">
-              {settings.dietary.allergies.length === 0 ? (
-                <span className="text-xs text-[#D9D2BE]/70 py-1">등록된 알레르기 정보가 없습니다.</span>
-              ) : (
-                settings.dietary.allergies.map((tag) => (
-                  <span
-                    key={tag}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rose-500/20 text-rose-300 border border-rose-500/40 text-xs font-medium"
-                  >
-                    <span>{tag}</span>
-                    <button
-                      onClick={() => handleToggleAllergy(tag)}
-                      className="text-rose-400 hover:text-white"
-                      title="삭제"
-                    >
-                      <X size={13} />
-                    </button>
-                  </span>
-                ))
-              )}
-            </div>
-
-            {/* Quick Popular Allergy Tags */}
-            <div className="pt-3 border-t border-[#D4AF37]/20">
-              <span className="text-[11px] text-[#D9D2BE] block mb-2 font-medium">
-                주요 알레르기 유발 식품 빠른 추가:
-              </span>
-              <div className="flex flex-wrap gap-1.5">
-                {POPULAR_ALLERGY_TAGS.map((tag) => {
-                  const isSelected = settings.dietary.allergies.includes(tag);
-                  return (
-                    <button
-                      key={tag}
-                      onClick={() => handleToggleAllergy(tag)}
-                      className={`text-xs px-2.5 py-1 rounded-lg border transition-all ${
-                        isSelected
-                          ? 'bg-rose-500 text-white border-rose-500 shadow-sm'
-                          : 'bg-[#133624] text-[#D9D2BE] border border-[#D4AF37]/30 hover:border-[#D4AF37] hover:text-[#FDFBF4]'
-                      }`}
-                    >
-                      {isSelected ? `✓ ${tag}` : `+ ${tag}`}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Custom Input */}
-            <form onSubmit={handleAddCustomAllergy} className="mt-3 flex items-center gap-2">
-              <input
-                type="text"
-                value={newAllergyInput}
-                onChange={(e) => setNewAllergyInput(e.target.value)}
-                placeholder="직접 입력 (예: 참깨, 키위...)"
-                className="bg-[#133624] border border-[#D4AF37]/40 rounded-xl px-3 py-2 text-xs text-[#FDFBF4] placeholder-[#D9D2BE]/60 outline-none focus:border-rose-500 w-full sm:w-64"
-              />
-              <button
-                type="submit"
-                className="px-3.5 py-2 rounded-xl bg-rose-600 hover:bg-rose-500 text-white text-xs font-semibold flex items-center gap-1 transition-colors"
               >
                 <Plus size={14} />
                 <span>추가</span>

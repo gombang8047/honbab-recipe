@@ -82,7 +82,7 @@ export const deepLinkService = {
 
     // 1. PC 및 데스크톱 환경: 새 탭에서 웹사이트 열기
     if (!isMobile) {
-      window.open(fallbackWebUrl, '_blank', 'noopener,noreferrer');
+      window.open(fallbackWebUrl, '_blank', 'noopener');
       return;
     }
 

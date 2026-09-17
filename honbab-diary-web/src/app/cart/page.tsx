@@ -138,7 +138,7 @@ export default function CartPage() {
       /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || '');
 
     if (!isMobile) {
-      window.open(webUrl, '_blank', 'noopener,noreferrer');
+      window.open(webUrl, '_blank', 'noopener');
       return;
     }
 
