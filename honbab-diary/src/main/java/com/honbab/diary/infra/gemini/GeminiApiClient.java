@@ -9,6 +9,8 @@ import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import com.honbab.diary.global.exception.BusinessException;
+import com.honbab.diary.global.exception.ErrorCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestTemplate;
 
