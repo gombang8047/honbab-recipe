@@ -24,6 +24,7 @@ import {
 import { diaryService, CookingDiaryEntry, DAILY_MAX_DIARY_XP } from '@/services/diaryService';
 import { soundService } from '@/services/soundService';
 import { shortsApi, ShortsItem } from '@/services/shortsApi';
+import { recipeApi } from '@/services/recipeApi';
 
 // 사진이 바로 없을 때 빠르게 테스트해볼 수 있는 예시 자취 요리 프리셋
 const QUICK_SAMPLE_PHOTOS = [
@@ -75,10 +76,12 @@ function DiaryWriteContent() {
   } | null>(null);
 
 
+  const [mounted, setMounted] = useState<boolean>(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // 북마크 및 쇼츠 풀 로드
   useEffect(() => {
+    setMounted(true);
     shortsApi.getBookmarks().then((bms) => {
       setBookmarks(bms);
       if (bms.length === 0) {
@@ -96,6 +99,21 @@ function DiaryWriteContent() {
     setTodayEarnedXp(diaryService.getTodayEarnedDiaryXp());
   }, []);
 
+  const handleSelectShorts = async (item: ShortsItem) => {
+    soundService.playButtonClick();
+    setCustomTitle(item.title);
+    setLinkedShortsThumbnail(item.thumbnailUrl);
+    setLinkedRecipeId(item.id);
+
+    try {
+      const recipe = await recipeApi.convertToRecipe(item.id);
+      if (recipe && recipe.id) {
+        setLinkedRecipeId(recipe.id);
+      }
+    } catch (err) {
+      console.warn('쇼츠 레시피 연동 중 변환 대기 (shortsId 유지):', err);
+    }
+  };
 
   // 검색 실행 핸들러
   const handleSearch = useCallback(async (keyword: string) => {
@@ -646,8 +664,8 @@ function DiaryWriteContent() {
                           >
                             <Bookmark size={13} fill={selectedTab === 'bookmark' ? 'currentColor' : 'none'} />
                             <span>내가 찜한 숏츠</span>
-                            {bookmarks.length > 0 && (
-                              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] font-extrabold">
+                            {mounted && bookmarks.length > 0 && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-[#D4AF37]/20 text-[#D4AF37] font-extrabold" suppressHydrationWarning>
                                 {bookmarks.length}
                               </span>
                             )}
@@ -708,12 +726,7 @@ function DiaryWriteContent() {
                                 <button
                                   key={bm.id}
                                   type="button"
-                                  onClick={() => {
-                                    soundService.playButtonClick();
-                                    setLinkedRecipeId(bm.id);
-                                    setCustomTitle(bm.title);
-                                    setLinkedShortsThumbnail(bm.thumbnailUrl);
-                                  }}
+                                  onClick={() => handleSelectShorts(bm)}
                                   className="flex items-center gap-3 p-2.5 rounded-xl bg-[#133624] hover:bg-[#1B4731] border border-[#D4AF37]/25 hover:border-[#D4AF37] transition-all text-left group active:scale-98"
                                 >
                                   <img
@@ -809,12 +822,7 @@ function DiaryWriteContent() {
                                   <button
                                     key={item.id}
                                     type="button"
-                                    onClick={() => {
-                                      soundService.playButtonClick();
-                                      setLinkedRecipeId(item.id);
-                                      setCustomTitle(item.title);
-                                      setLinkedShortsThumbnail(item.thumbnailUrl);
-                                    }}
+                                    onClick={() => handleSelectShorts(item)}
                                     className="flex items-center gap-3 p-2.5 rounded-xl bg-[#133624] hover:bg-[#1B4731] border border-[#D4AF37]/25 hover:border-[#D4AF37] transition-all text-left group active:scale-98"
                                   >
                                     <img

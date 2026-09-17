@@ -24,6 +24,7 @@ public class RecipeService {
      */
     public RecipeDetailResponse getRecipeDetail(Long recipeId) {
         Recipe recipe = recipeRepository.findById(recipeId)
+                .or(() -> recipeRepository.findByShortsId(recipeId))
                 .orElseThrow(() -> new BusinessException(ErrorCode.RECIPE_NOT_FOUND));
         return RecipeDetailResponse.from(recipe);
     }
