@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { cartService, CartIngredient } from '@/services/cartService';
-import { getIngredientPricing } from '@/services/ingredientPricing';
+import { getIngredientPricing, fetchAndApplyKurlyPrices } from '@/services/ingredientPricing';
 import { soundService } from '@/services/soundService';
 import { deepLinkService } from '@/services/deepLinkService';
 import { PlatformSelectModal, PlatformSelectInfo } from '@/components/PlatformSelectModal';
@@ -43,6 +43,12 @@ export default function CartPage() {
   useEffect(() => {
     loadCart();
     loadPreferences();
+    fetchAndApplyKurlyPrices().then((cnt) => {
+      if (cnt > 0) {
+        // 최신 가격이 주입되면 카트 상태를 리프레시하여 새 가격 반영
+        setItems(cartService.getItems());
+      }
+    }).catch(() => {});
 
     const handleCartChanged = () => {
       loadCart();

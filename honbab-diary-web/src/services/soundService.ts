@@ -200,39 +200,19 @@ class SoundService {
     }
   }
 
-  // 버튼 클릭 시 톡 사운드
+  // 버튼 클릭 시 톡 사운드 (사용자 요청으로 완전 무음 처리)
   playButtonClick() {
-    const settings = settingsService.getSettings().sound;
-    if (!settings.masterEnabled || !settings.buttonClickSound) return;
-    const ctx = this.getContext();
-    const masterGain = this.getMasterGain();
-    if (!ctx || masterGain === 0) return;
-
-    const osc = ctx.createOscillator();
-    const gain = ctx.createGain();
-
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(600, ctx.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(200, ctx.currentTime + 0.05);
-
-    gain.gain.setValueAtTime(masterGain * 0.15, ctx.currentTime);
-    gain.gain.linearRampToValueAtTime(0.001, ctx.currentTime + 0.05);
-
-    osc.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start();
-    osc.stop(ctx.currentTime + 0.05);
+    return;
   }
 
-  // 성공 / 축하 효과음 (멜로디 재생)
+  // 성공 / 축하 효과음 (무음 처리 - 타이머 사운드만 허용)
   playPaymentSuccess() {
-    this.playMelody();
+    return;
   }
 
-  // 좋아요 하트 팝 효과음
+  // 좋아요 하트 팝 효과음 (무음 처리)
   playHeartPop() {
-    this.playButtonClick();
+    return;
   }
 
   // 타이머 째깍 소리

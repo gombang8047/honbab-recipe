@@ -34,7 +34,7 @@ const DEFAULT_SETTINGS: AppSettings = {
   sound: {
     masterEnabled: true,
     volume: 75,
-    buttonClickSound: true,
+    buttonClickSound: false,
     timerTickingSound: false,
   },
   dietary: {

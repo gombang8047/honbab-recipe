@@ -202,30 +202,27 @@ export const IngredientPurchaseModal: React.FC<IngredientPurchaseModalProps> = (
           </div>
 
           {/* Quick Buy CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-2.5 pt-2">
+          <div className="flex flex-col gap-2 pt-2">
             <button
-              onClick={() => handleOpenLink(currentTier.coupangSearchUrl, 'coupang')}
-              className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-500 hover:to-rose-500 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-98"
+              onClick={() => handleOpenLink(pricing.kurlyUrl, 'kurly')}
+              className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3.5 px-4 rounded-xl text-sm flex items-center justify-center gap-2 shadow-lg shadow-purple-900/30 transition-all active:scale-98"
             >
-              <span>🚀 쿠팡에서 담기</span>
-              <ExternalLink size={13} />
+              <span>🟣 마켓컬리 샛별배송으로 담기</span>
+              <ExternalLink size={15} />
             </button>
-
-            <button
-              onClick={() => handleOpenLink(currentTier.kurlySearchUrl, 'kurly')}
-              className="flex-1 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-white font-bold py-3 px-4 rounded-xl text-xs flex items-center justify-center gap-2 shadow-lg transition-all active:scale-98"
-            >
-              <span>🟣 컬리에서 담기</span>
-              <ExternalLink size={13} />
-            </button>
+            {pricing.isRealtimeSynced && (
+              <p className="text-[11px] text-purple-300/90 text-center font-medium">
+                ✓ 컬리 실시간 최신 판매가 동기화 완료
+              </p>
+            )}
           </div>
         </div>
 
         {/* Bottom Helper Notice */}
         <div className="flex items-start gap-2 text-[11px] text-slate-400 bg-slate-950/40 p-3 rounded-xl border border-slate-800/60">
-          <Info size={14} className="text-orange-400 shrink-0 mt-0.5" />
+          <Info size={14} className="text-purple-400 shrink-0 mt-0.5" />
           <p className="leading-relaxed">
-            클릭 시 해당 플랫폼으로 이동하며, 원하시는 상품을 쿠팡/네이버 장바구니에 직접 담으신 후 한 번에 결제하시면 편리합니다.
+            클릭 시 마켓컬리로 이동하며, 오늘 밤 11시 전 주문 시 <b>내일 아침 7시 샛별배송</b>으로 문 앞까지 신선하게 배송됩니다.
           </p>
         </div>
       </div>
