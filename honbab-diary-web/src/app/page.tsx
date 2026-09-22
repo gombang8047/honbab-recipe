@@ -6,6 +6,7 @@ import { recipeApi } from '@/services/recipeApi';
 import { ShortsCard } from '@/components/ShortsCard';
 import { ShortsPlayerModal } from '@/components/ShortsPlayerModal';
 import { AiConversionModal } from '@/components/AiConversionModal';
+import { fetchAndApplyKurlyPrices } from '@/services/ingredientPricing';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Sparkles, TrendingUp, Filter, Loader2, Search, X, Utensils, RotateCw, Flame, Clock, ChevronDown, Shuffle, ShoppingCart, Check } from 'lucide-react';
 
@@ -42,6 +43,9 @@ function HomeContent() {
   }, []);
 
   useEffect(() => {
+    // 앱 진입 시 백엔드 마켓컬리 최신 일일 가격 동기화 캐시 1회 프리페치
+    fetchAndApplyKurlyPrices().catch(() => {});
+
     const handleResize = () => {
       setGridCols(getResponsiveColumnCount());
     };

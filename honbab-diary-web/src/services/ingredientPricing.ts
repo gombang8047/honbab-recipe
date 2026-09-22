@@ -2,6 +2,20 @@
  * 재료별 개당/단위당 가격 및 스마트 쇼핑 링크 유틸리티
  */
 
+import { apiClient } from './api';
+
+export interface SyncedKurlyPriceItem {
+  ingredientName: string;
+  productName: string;
+  packagePrice: number;
+  productUrl: string;
+  thumbnailUrl: string;
+  lastSyncedAt: string;
+}
+
+// 백엔드에서 받아온 최신 마켓컬리 실제 상품 데이터 인메모리 캐시
+const SYNCED_KURLY_CACHE = new Map<string, SyncedKurlyPriceItem>();
+
 export interface PriceTierInfo {
   tierName: 'value' | 'lowest' | 'rocket';
   title: string;
@@ -30,6 +44,12 @@ export interface IngredientPricingResult {
   // 검색 링크
   coupangUrl: string;
   kurlyUrl: string;
+  // 마켓컬리 실제 연동 정보 (일일 스케줄러 동기화 데이터)
+  kurlyProductName?: string;
+  kurlyPackagePrice?: number;
+  kurlyItemUrl?: string;
+  kurlyThumbnail?: string;
+  isRealtimeSynced?: boolean;
   // 호환용 (단위당 가격으로 매핑)
   coupangPrice: number;
   kurlyPrice: number;
@@ -748,11 +768,34 @@ function calculateRecipeMultiplier(amountNum: number, unit: string, unitLabel: s
     if (amountNum >= 30) return Math.max(0.2, amountNum / 150);
   }
 
+  // 액체 용량 단위(ml, cc, l)가 개수/봉 단위와 매칭되었을 때 1000배로 폭증하지 않도록 안전 환산
+  if (unit === 'ml' || unit === 'cc') {
+    if (amountNum >= 50) return Math.max(0.1, amountNum / 500); // 예: 1000ml = 2병/팩, 500ml = 1병/팩
+    return Math.max(0.1, amountNum / 100);
+  }
+
+  if (unit === 'l') {
+    return Math.max(0.5, amountNum);
+  }
+
   if (unit === '쪽' && cleanName.includes('마늘')) {
     return Math.max(0.2, amountNum * 0.33);
   }
 
   return Math.max(0.1, amountNum);
+}
+
+/**
+ * 조리용 물 등 가정 내 기본 보유 무료 재료 여부 판별
+ */
+export function isFreeBasicIngredient(name?: string): boolean {
+  if (!name) return false;
+  const clean = name.trim().replace(/[\[\(].*?[\]\)]/g, '').trim().replace(/\s+/g, '');
+  const waterKeywords = [
+    '물', '생수', '수돗물', '조리수', '정수기물', '찬물', '뜨거운물', 
+    '끓는물', '따뜻한물', '얼음물', '얼음', '식수', '면삶는물', '육수용물'
+  ];
+  return waterKeywords.includes(clean);
 }
 
 /**
@@ -766,10 +809,84 @@ export function getIngredientPricing(
   const cleanName = ingredientName.trim().replace(/[\[\(].*?[\]\)]/g, '').trim();
   const parsed = parseRecipeAmountAndUnit(amount, unit);
 
-  // DB 매칭 확인 (포함 검색)
-  const matchedKey = Object.keys(INGREDIENT_UNIT_DB).find(
-    (k) => cleanName.includes(k) || k.includes(cleanName)
-  );
+  const makeKurlyUrl = (q: string) =>
+    `https://www.kurly.com/search?sword=${encodeURIComponent(q)}`;
+
+  // 1. 물 등 조리용 기본 무료 재료의 경우 즉시 0원 처리
+  if (isFreeBasicIngredient(cleanName)) {
+    const kurlySearchUrl = makeKurlyUrl('생수');
+    return {
+      ingredientName: cleanName,
+      recipeAmount: amount,
+      recipeUnit: unit,
+      unitLabel: '기본 조리수',
+      unitCoupangPrice: 0,
+      unitKurlyPrice: 0,
+      pkgCoupangDesc: '수돗물/정수기 (0원)',
+      pkgKurlyDesc: '수돗물/정수기 (0원)',
+      recipeCoupangCost: 0,
+      recipeKurlyCost: 0,
+      coupangUrl: kurlySearchUrl,
+      kurlyUrl: kurlySearchUrl,
+      kurlyProductName: '가정 내 기본 조리수',
+      kurlyPackagePrice: 0,
+      kurlyItemUrl: kurlySearchUrl,
+      isRealtimeSynced: true,
+      coupangPrice: 0,
+      kurlyPrice: 0,
+      naverPrice: 0,
+      naverUrl: kurlySearchUrl,
+      tiers: {
+        value: {
+          tierName: 'value',
+          title: '💧 기본 조리수',
+          badge: '💧 기본 조리수',
+          badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
+          description: '수돗물 / 정수기 물 (0원)',
+          recommendedPackage: '가정 내 기본 조리수',
+          estimatedPrice: 0,
+          coupangSearchUrl: kurlySearchUrl,
+          kurlySearchUrl: kurlySearchUrl
+        },
+        lowest: {
+          tierName: 'lowest',
+          title: '💧 기본 조리수',
+          badge: '💧 기본 조리수',
+          badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
+          description: '수돗물 / 정수기 물 (0원)',
+          recommendedPackage: '가정 내 기본 조리수',
+          estimatedPrice: 0,
+          coupangSearchUrl: kurlySearchUrl,
+          kurlySearchUrl: kurlySearchUrl
+        },
+        rocket: {
+          tierName: 'rocket',
+          title: '💧 기본 조리수',
+          badge: '💧 기본 조리수',
+          badgeColor: 'bg-blue-500/20 text-blue-400 border-blue-500/40',
+          description: '수돗물 / 정수기 물 (0원)',
+          recommendedPackage: '가정 내 기본 조리수',
+          estimatedPrice: 0,
+          coupangSearchUrl: kurlySearchUrl,
+          kurlySearchUrl: kurlySearchUrl
+        }
+      }
+    };
+  }
+
+  // DB 매칭 확인 (우선순위: 1. 완전 일치 -> 2. 긴 키 순서대로 포함 검색)
+  let matchedKey: string | undefined;
+  if (INGREDIENT_UNIT_DB[cleanName]) {
+    matchedKey = cleanName;
+  } else {
+    const keysSorted = Object.keys(INGREDIENT_UNIT_DB).sort((a, b) => b.length - a.length);
+    // 재료명에 DB의 키가 온전히 포함된 경우 ('양조간장' -> '간장', '다진마늘' -> '마늘')
+    matchedKey = keysSorted.find((k) => cleanName.includes(k));
+    // 2글자 이상인 경우에만 접두/접미 일치 제한적 검사 (단일 글자 k.includes(cleanName) 오매칭 완전 차단)
+    if (!matchedKey && cleanName.length >= 2) {
+      matchedKey = keysSorted.find((k) => k.startsWith(cleanName) || k.endsWith(cleanName));
+    }
+  }
 
   // 단위 기반 지능형 fallback 생성 (미등록 재료)
   let fallbackUnitLabel = '1개당';
@@ -819,21 +936,31 @@ export function getIngredientPricing(
 
   const db = matchedKey ? INGREDIENT_UNIT_DB[matchedKey] : fallback;
 
-  // 재료명 그대로 순수 검색 (불필요한 파라미터 제거하여 쿠팡 보안 차단 방지)
+  // 마켓컬리 일일 스케줄러 동기화 캐시 확인
+  const synced = SYNCED_KURLY_CACHE.get(cleanName);
+
+  // 재료명 검색 URL
   const makeCoupangUrl = (q: string) =>
     `https://www.coupang.com/np/search?q=${encodeURIComponent(q)}`;
-  const makeKurlyUrl = (q: string) =>
-    `https://www.kurly.com/search?sword=${encodeURIComponent(q)}`;
 
   const coupangSearchUrl = makeCoupangUrl(cleanName);
-  const kurlySearchUrl = makeKurlyUrl(cleanName);
+  // 동기화된 실제 상품 상세 URL이 있으면 우선 사용, 없으면 검색 URL
+  const kurlyTargetUrl = synced?.productUrl || makeKurlyUrl(cleanName);
 
   // 레시피 소요 배수 계산 (단위 불일치 완벽 보정)
   const multiplier = calculateRecipeMultiplier(parsed.amountNum, parsed.unit, db.unitLabel, cleanName);
 
-  // 1인분 1끼 소요액 계산 (안전 상한선 25,000원으로 15만원 등 버그 원천 차단)
+  // 동기화된 실제 판매가가 있을 경우 단위당 가격 추정 계산 (패키지 가격 기반)
+  let effectiveKurlyUnit = db.unitKurly;
+  let effectiveKurlyPkgDesc = db.pkgKurly;
+  if (synced && synced.packagePrice > 0) {
+    // 패키지 상품명 및 가격 기반 안내
+    effectiveKurlyPkgDesc = `${synced.productName} (${synced.packagePrice.toLocaleString()}원 기준)`;
+  }
+
+  // 1인분 1끼 소요액 계산 (안전 상한선 25,000원으로 버그 원천 차단)
   const recipeCoupangCost = Math.min(25000, Math.max(50, Math.round(db.unitCoupang * multiplier)));
-  const recipeKurlyCost = Math.min(25000, Math.max(50, Math.round(db.unitKurly * multiplier)));
+  const recipeKurlyCost = Math.min(25000, Math.max(50, Math.round(effectiveKurlyUnit * multiplier)));
 
   return {
     ingredientName: cleanName,
@@ -841,51 +968,82 @@ export function getIngredientPricing(
     recipeUnit: unit,
     unitLabel: db.unitLabel,
     unitCoupangPrice: db.unitCoupang,
-    unitKurlyPrice: db.unitKurly,
+    unitKurlyPrice: effectiveKurlyUnit,
     pkgCoupangDesc: db.pkgCoupang,
-    pkgKurlyDesc: db.pkgKurly,
+    pkgKurlyDesc: effectiveKurlyPkgDesc,
     recipeCoupangCost,
     recipeKurlyCost,
-    coupangUrl: coupangSearchUrl,
-    kurlyUrl: kurlySearchUrl,
-    coupangPrice: db.unitCoupang,
-    kurlyPrice: db.unitKurly,
-    naverPrice: db.unitKurly,
-    naverUrl: kurlySearchUrl,
+    coupangUrl: kurlyTargetUrl,
+    kurlyUrl: kurlyTargetUrl,
+    kurlyProductName: synced?.productName,
+    kurlyPackagePrice: synced?.packagePrice,
+    kurlyItemUrl: synced?.productUrl,
+    kurlyThumbnail: synced?.thumbnailUrl,
+    isRealtimeSynced: !!synced,
+    coupangPrice: effectiveKurlyUnit,
+    kurlyPrice: effectiveKurlyUnit,
+    naverPrice: effectiveKurlyUnit,
+    naverUrl: kurlyTargetUrl,
     tiers: {
       value: {
         tierName: 'value',
-        title: '인기 베스트 라인',
-        badge: '🔥 인기 베스트',
-        badgeColor: 'bg-orange-500/20 text-orange-400 border-orange-500/40',
-        description: `${db.pkgKurly} (${db.unitLabel} ~${db.unitKurly.toLocaleString()}원)`,
-        recommendedPackage: db.valuePkg,
-        estimatedPrice: db.unitKurly,
-        coupangSearchUrl,
-        kurlySearchUrl
+        title: '✨ 1인 소포장 라인',
+        badge: '✨ 1인 소포장',
+        badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/40',
+        description: synced
+          ? `${synced.productName} (~${synced.packagePrice.toLocaleString()}원)`
+          : `${db.pkgKurly} (${db.unitLabel} ~${db.unitKurly.toLocaleString()}원)`,
+        recommendedPackage: synced?.productName || db.valuePkg,
+        estimatedPrice: synced?.packagePrice || db.unitKurly,
+        coupangSearchUrl: kurlyTargetUrl,
+        kurlySearchUrl: kurlyTargetUrl
       },
       lowest: {
         tierName: 'lowest',
-        title: '묶음 알뜰 라인',
-        badge: '🏷️ 묶음 환산 최저',
+        title: '🏷️ 샛별 알뜰 특가',
+        badge: '🏷️ 샛별 알뜰 특가',
         badgeColor: 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40',
-        description: `${db.pkgCoupang} (${db.unitLabel} ~${db.unitCoupang.toLocaleString()}원)`,
+        description: `${db.pkgKurly} (${db.unitLabel} ~${effectiveKurlyUnit.toLocaleString()}원)`,
         recommendedPackage: db.lowestPkg,
-        estimatedPrice: db.unitCoupang,
-        coupangSearchUrl,
-        kurlySearchUrl
+        estimatedPrice: effectiveKurlyUnit,
+        coupangSearchUrl: kurlyTargetUrl,
+        kurlySearchUrl: kurlyTargetUrl
       },
       rocket: {
         tierName: 'rocket',
-        title: '새벽도착 샛별배송 라인',
-        badge: '🟣 내일 아침 도착',
-        badgeColor: 'bg-purple-500/20 text-purple-400 border-purple-500/40',
-        description: '오늘 밤 주문하고 내일 아침 도착',
-        recommendedPackage: db.rocketPkg,
-        estimatedPrice: db.unitKurly,
-        coupangSearchUrl,
-        kurlySearchUrl
+        title: '🟣 내일 아침 7시 도착 보장',
+        badge: '🟣 샛별배송 보장',
+        badgeColor: 'bg-purple-600/30 text-purple-300 border-purple-400/50',
+        description: '오늘 밤 11시 전 주문 시 내일 아침 7시 도착',
+        recommendedPackage: synced?.productName || db.rocketPkg,
+        estimatedPrice: synced?.packagePrice || effectiveKurlyUnit,
+        coupangSearchUrl: kurlyTargetUrl,
+        kurlySearchUrl: kurlyTargetUrl
       }
     }
   };
+}
+
+/**
+ * 백엔드에서 매일 새벽 동기화된 마켓컬리 실제 판매가 목록을 불러와 캐시에 주입
+ */
+export async function fetchAndApplyKurlyPrices(): Promise<number> {
+  try {
+    const res: any = await apiClient.get('/shopping/kurly/prices');
+    const data = res?.data || res;
+    if (data && typeof data === 'object') {
+      let count = 0;
+      for (const [name, item] of Object.entries(data)) {
+        if (item && typeof item === 'object') {
+          SYNCED_KURLY_CACHE.set(name, item as SyncedKurlyPriceItem);
+          count++;
+        }
+      }
+      return count;
+    }
+    return 0;
+  } catch (e) {
+    // 백엔드 미구동 또는 네트워크 에러 시 기준 하드코딩 DB로 무중단 폴백 동작
+    return 0;
+  }
 }

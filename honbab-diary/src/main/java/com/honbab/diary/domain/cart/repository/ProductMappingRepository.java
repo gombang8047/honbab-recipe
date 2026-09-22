@@ -11,4 +11,6 @@ public interface ProductMappingRepository extends JpaRepository<ProductMapping, 
     List<ProductMapping> findByIngredientId(Long ingredientId);
 
     Optional<ProductMapping> findByIngredientIdAndPlatform(Long ingredientId, String platform);
+
+    List<ProductMapping> findAllByPlatform(String platform);
 }

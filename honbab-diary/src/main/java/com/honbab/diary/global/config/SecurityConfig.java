@@ -39,6 +39,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/recipes/**").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/shorts/*/recipe").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/v1/recipes/**").permitAll()
+                        .requestMatchers("/api/v1/shopping/**").permitAll()
                         // Swagger UI
                         .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                         // Actuator

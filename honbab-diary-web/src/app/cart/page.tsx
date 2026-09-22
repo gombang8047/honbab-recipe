@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { cartService, CartIngredient } from '@/services/cartService';
-import { getIngredientPricing } from '@/services/ingredientPricing';
+import { getIngredientPricing, fetchAndApplyKurlyPrices } from '@/services/ingredientPricing';
 import { soundService } from '@/services/soundService';
 import { deepLinkService } from '@/services/deepLinkService';
 import { PlatformSelectModal, PlatformSelectInfo } from '@/components/PlatformSelectModal';
@@ -25,7 +25,6 @@ export default function CartPage() {
   const [items, setItems] = useState<CartIngredient[]>([]);
   const [loading, setLoading] = useState(true);
   const [platformModalInfo, setPlatformModalInfo] = useState<PlatformSelectInfo | null>(null);
-  const [coupangPref, setCoupangPref] = useState<'app' | 'web' | null>(null);
   const [kurlyPref, setKurlyPref] = useState<'app' | 'web' | null>(null);
 
   const loadCart = () => {
@@ -35,7 +34,6 @@ export default function CartPage() {
   };
 
   const loadPreferences = () => {
-    setCoupangPref(deepLinkService.getPreference('coupang'));
     setKurlyPref(deepLinkService.getPreference('kurly'));
   };
 
@@ -43,6 +41,12 @@ export default function CartPage() {
   useEffect(() => {
     loadCart();
     loadPreferences();
+    fetchAndApplyKurlyPrices().then((cnt) => {
+      if (cnt > 0) {
+        // 최신 가격이 주입되면 카트 상태를 리프레시하여 새 가격 반영
+        setItems(cartService.getItems());
+      }
+    }).catch(() => {});
 
     const handleCartChanged = () => {
       loadCart();
@@ -54,12 +58,12 @@ export default function CartPage() {
     };
   }, []);
 
-  const handleTogglePreference = (platform: 'coupang' | 'kurly') => {
+  const handleTogglePreference = (platform: 'kurly' = 'kurly') => {
     soundService.playButtonClick();
-    const current = platform === 'coupang' ? coupangPref : kurlyPref;
+    const current = kurlyPref;
     // null -> 'app' -> 'web' -> 'app' 순환 토글
     const next = current === 'app' ? 'web' : 'app';
-    deepLinkService.setPreference(platform, next);
+    deepLinkService.setPreference('kurly', next);
     loadPreferences();
   };
 
@@ -78,21 +82,14 @@ export default function CartPage() {
   // 구매 대상(체크된 재료)만 필터링
   const checkedItems = useMemo(() => items.filter((i) => i.checked), [items]);
 
-  // 플랫폼별 예상 총액 계산 (묶음 구매 시 이번 1인분 조리에 실제 소요되는 개당/단위당 원가 기준)
-  const { totalCoupangCost, totalKurlyCost, averageEstimatedCost } = useMemo(() => {
-    let coupangSum = 0;
+  // 마켓컬리 1인분 조리 시 소요되는 실질 식재료 원가 총액 계산
+  const totalKurlyCost = useMemo(() => {
     let kurlySum = 0;
     checkedItems.forEach((item) => {
       const pricing = getIngredientPricing(item.name, item.amount, item.unit);
-      coupangSum += pricing.recipeCoupangCost;
       kurlySum += pricing.recipeKurlyCost;
     });
-    const avg = checkedItems.length > 0 ? Math.round(((coupangSum + kurlySum) / 2) / 10) * 10 : 0;
-    return {
-      totalCoupangCost: coupangSum,
-      totalKurlyCost: kurlySum,
-      averageEstimatedCost: avg,
-    };
+    return kurlySum;
   }, [checkedItems]);
 
   const allChecked = items.length > 0 && items.every((i) => i.checked);
@@ -197,36 +194,6 @@ export default function CartPage() {
               <span className="hidden sm:inline">연결:</span>
             </span>
 
-            {/* 쿠팡 토글 */}
-            <button
-              type="button"
-              onClick={() => handleTogglePreference('coupang')}
-              title="클릭하여 쿠팡 연결 방식을 앱 또는 웹으로 즉시 변경합니다"
-              className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center gap-1 transition-all border ${
-                coupangPref === 'app'
-                  ? 'bg-rose-950/60 text-rose-300 border-rose-500/40 shadow-sm'
-                  : coupangPref === 'web'
-                  ? 'bg-[#1B4731] text-[#FDFBF4] border-[#D4AF37]/40'
-                  : 'bg-[#133624] text-[#D9D2BE]/80 border-transparent hover:border-[#D4AF37]/30'
-              }`}
-            >
-              <span>쿠팡</span>
-              <span className="flex items-center gap-0.5 ml-0.5">
-                {coupangPref === 'app' ? (
-                  <>
-                    <Smartphone size={11} className="text-rose-400" />
-                    <span>앱</span>
-                  </>
-                ) : coupangPref === 'web' ? (
-                  <>
-                    <Globe size={11} className="text-emerald-400" />
-                    <span>웹</span>
-                  </>
-                ) : (
-                  <span className="text-[10px] text-[#D4AF37]">선택 전 ▾</span>
-                )}
-              </span>
-            </button>
 
             {/* 마켓컬리 토글 */}
             <button
@@ -402,12 +369,8 @@ export default function CartPage() {
                                 {/* 1-Serving Estimated Cost Details */}
                                 <div className="flex items-center gap-2 mt-1 text-[11px] text-[#D9D2BE]/75 flex-wrap">
                                   <span className="text-[10px] text-[#D9D2BE]/60">1끼 소요액:</span>
-                                  <span className="text-rose-300 font-semibold">
-                                    쿠팡 ~{pricing.recipeCoupangCost.toLocaleString()}원
-                                  </span>
-                                  <span className="text-[#D4AF37]/30">|</span>
                                   <span className="text-purple-300 font-semibold">
-                                    컬리 ~{pricing.recipeKurlyCost.toLocaleString()}원
+                                    {pricing.recipeKurlyCost === 0 ? '무료 (기본 조리수)' : `컬리 ~${pricing.recipeKurlyCost.toLocaleString()}원`}
                                   </span>
                                 </div>
                               </div>
@@ -422,28 +385,8 @@ export default function CartPage() {
                               </button>
                             </div>
 
-                            {/* Mobile Only: 2-Column Grid (100% width, zero overflow) */}
-                            <div className="grid grid-cols-2 gap-2 w-full pt-1 md:hidden">
-                              <a
-                                href={pricing.coupangUrl}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  handlePlatformClick('coupang', item.name, pricing.coupangUrl);
-                                }}
-                                className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/40 text-rose-200 text-xs font-bold transition-all shadow-sm group active:scale-98"
-                                title={`${pricing.pkgCoupangDesc} (${pricing.unitLabel} 기준)`}
-                              >
-                                <div className="flex flex-col min-w-0">
-                                  <span className="text-rose-400 font-extrabold text-[10px] leading-tight">쿠팡</span>
-                                  <span className="text-white font-extrabold text-xs truncate">
-                                    ~{pricing.unitCoupangPrice.toLocaleString()}원
-                                  </span>
-                                </div>
-                                <ExternalLink size={12} className="text-rose-400/80 group-hover:text-rose-300 shrink-0 ml-1" />
-                              </a>
-
+                            {/* Mobile Only: 1-Column Full Width Kurly Button */}
+                            <div className="w-full pt-1 md:hidden">
                               <a
                                 href={pricing.kurlyUrl}
                                 target="_blank"
@@ -452,40 +395,26 @@ export default function CartPage() {
                                   e.preventDefault();
                                   handlePlatformClick('kurly', item.name, pricing.kurlyUrl);
                                 }}
-                                className="flex items-center justify-between px-2.5 py-2 rounded-xl bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/40 text-purple-200 text-xs font-bold transition-all shadow-sm group active:scale-98"
+                                className="flex items-center justify-between px-3 py-2.5 rounded-xl bg-purple-950/50 hover:bg-purple-900/70 border border-purple-500/50 text-purple-200 text-xs font-bold transition-all shadow-sm group active:scale-98"
                                 title={`${pricing.pkgKurlyDesc} (${pricing.unitLabel} 기준)`}
                               >
-                                <div className="flex flex-col min-w-0">
-                                  <span className="text-purple-400 font-extrabold text-[10px] leading-tight">컬리</span>
-                                  <span className="text-white font-extrabold text-xs truncate">
-                                    ~{pricing.unitKurlyPrice.toLocaleString()}원
+                                <div className="flex items-center gap-2 min-w-0">
+                                  <span className="text-purple-400 font-extrabold text-[11px] px-1.5 py-0.5 rounded bg-purple-900/60 border border-purple-400/40">
+                                    {pricing.unitKurlyPrice === 0 ? '기본 준비' : '컬리 샛별배송'}
                                   </span>
+                                  <span className="text-white font-extrabold text-xs truncate">
+                                    {pricing.unitKurlyPrice === 0 ? '0원 (가정 내 조리수)' : `~${pricing.unitKurlyPrice.toLocaleString()}원`}
+                                  </span>
+                                  {pricing.unitKurlyPrice > 0 && (
+                                    <span className="text-[10px] text-purple-300/70">({pricing.unitLabel})</span>
+                                  )}
                                 </div>
-                                <ExternalLink size={12} className="text-purple-400/80 group-hover:text-purple-300 shrink-0 ml-1" />
+                                <ExternalLink size={13} className="text-purple-400 group-hover:text-purple-300 shrink-0 ml-1" />
                               </a>
                             </div>
 
-                            {/* Desktop Only (md and up): Single-row Right Controls [쿠팡] [컬리] [Trash] */}
+                            {/* Desktop Only (md and up): Kurly Single Button + Trash */}
                             <div className="hidden md:flex md:items-center md:gap-2.5 shrink-0">
-                              <a
-                                href={pricing.coupangUrl}
-                                target="_blank"
-                                rel="noreferrer noopener"
-                                onClick={(e) => {
-                                  e.preventDefault();
-                                  handlePlatformClick('coupang', item.name, pricing.coupangUrl);
-                                }}
-                                className="px-3.5 py-2 rounded-xl bg-rose-950/40 hover:bg-rose-900/60 border border-rose-500/40 text-rose-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm group hover:border-rose-400 whitespace-nowrap"
-                                title={`${pricing.pkgCoupangDesc} (${pricing.unitLabel} 기준)`}
-                              >
-                                <span className="text-[11px] font-extrabold text-rose-400">쿠팡</span>
-                                <span className="font-extrabold text-white text-xs">
-                                  ~{pricing.unitCoupangPrice.toLocaleString()}원
-                                </span>
-                                <span className="text-[10px] text-rose-300/70 font-normal">({pricing.unitLabel})</span>
-                                <ExternalLink size={11} className="text-rose-400/80 group-hover:text-rose-300" />
-                              </a>
-
                               <a
                                 href={pricing.kurlyUrl}
                                 target="_blank"
@@ -494,15 +423,19 @@ export default function CartPage() {
                                   e.preventDefault();
                                   handlePlatformClick('kurly', item.name, pricing.kurlyUrl);
                                 }}
-                                className="px-3.5 py-2 rounded-xl bg-purple-950/40 hover:bg-purple-900/60 border border-purple-500/40 text-purple-200 text-xs font-bold transition-all flex items-center gap-1.5 shadow-sm group hover:border-purple-400 whitespace-nowrap"
+                                className="px-4 py-2.5 rounded-xl bg-purple-950/50 hover:bg-purple-900/70 border border-purple-500/50 text-purple-200 text-xs font-bold transition-all flex items-center gap-2 shadow-sm group hover:border-purple-400 whitespace-nowrap"
                                 title={`${pricing.pkgKurlyDesc} (${pricing.unitLabel} 기준)`}
                               >
-                                <span className="text-[11px] font-extrabold text-purple-400">컬리</span>
-                                <span className="font-extrabold text-white text-xs">
-                                  ~{pricing.unitKurlyPrice.toLocaleString()}원
+                                <span className="text-[11px] font-extrabold text-purple-400 px-1.5 py-0.5 rounded bg-purple-900/60 border border-purple-400/40">
+                                  {pricing.unitKurlyPrice === 0 ? '기본 준비' : '컬리 샛별배송'}
                                 </span>
-                                <span className="text-[10px] text-purple-300/70 font-normal">({pricing.unitLabel})</span>
-                                <ExternalLink size={11} className="text-purple-400/80 group-hover:text-purple-300" />
+                                <span className="font-extrabold text-white text-xs">
+                                  {pricing.unitKurlyPrice === 0 ? '0원 (가정 내 조리수)' : `~${pricing.unitKurlyPrice.toLocaleString()}원`}
+                                </span>
+                                {pricing.unitKurlyPrice > 0 && (
+                                  <span className="text-[10px] text-purple-300/70 font-normal">({pricing.unitLabel})</span>
+                                )}
+                                <ExternalLink size={12} className="text-purple-400/80 group-hover:text-purple-300 ml-0.5" />
                               </a>
 
                               <button
@@ -542,24 +475,17 @@ export default function CartPage() {
                 </span>
               </div>
 
-              {/* Platform Comparison Breakdown */}
+              {/* Kurly 1-Meal Grocery Breakdown */}
               <div className="flex flex-col gap-2.5 border-b border-[#D4AF37]/20 pb-4">
-                <div className="p-3 rounded-2xl bg-[#0D2418] border border-rose-500/25 flex items-center justify-between">
+                <div className="p-3.5 rounded-2xl bg-[#0D2418] border border-purple-500/30 flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-rose-400 shadow-sm" />
-                    <span className="text-xs font-semibold text-[#FDFBF4]">🚀 쿠팡 1인분 재료원가</span>
+                    <span className="w-2.5 h-2.5 rounded-full bg-purple-400 shadow-sm" />
+                    <div>
+                      <span className="text-xs font-bold text-[#FDFBF4] block">🟣 컬리 샛별배송 1인분 식재료 원가</span>
+                      <span className="text-[10px] text-purple-300/70">내일 아침 7시 문 앞 도착 기준</span>
+                    </div>
                   </div>
-                  <span className="text-sm font-black text-rose-300">
-                    ~{totalCoupangCost.toLocaleString()}원
-                  </span>
-                </div>
-
-                <div className="p-3 rounded-2xl bg-[#0D2418] border border-purple-500/25 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <span className="w-2 h-2 rounded-full bg-purple-400 shadow-sm" />
-                    <span className="text-xs font-semibold text-[#FDFBF4]">🟣 컬리 1인분 재료원가</span>
-                  </div>
-                  <span className="text-sm font-black text-purple-300">
+                  <span className="text-base font-black text-purple-300">
                     ~{totalKurlyCost.toLocaleString()}원
                   </span>
                 </div>
@@ -574,15 +500,15 @@ export default function CartPage() {
                 )}
               </div>
 
-              {/* Estimated Average Total */}
+              {/* Estimated Total */}
               <div className="flex justify-between items-center py-1">
                 <div>
-                  <span className="text-sm font-bold text-[#FDFBF4] block">1끼 평균 식비 원가</span>
+                  <span className="text-sm font-bold text-[#FDFBF4] block">1끼 식비 원가</span>
                   <span className="text-[10px] text-[#D9D2BE]/70">조리에 실제 소요된 재료 기준</span>
                 </div>
                 <div className="text-right">
                   <span className="text-2xl sm:text-3xl font-black text-[#D4AF37]">
-                    ~{averageEstimatedCost.toLocaleString()}원
+                    ~{totalKurlyCost.toLocaleString()}원
                   </span>
                 </div>
               </div>
@@ -593,10 +519,10 @@ export default function CartPage() {
                 <div className="space-y-1.5 leading-relaxed">
                   <p className="font-bold text-[#FDFBF4]">💡 개당 환산 단가 안내</p>
                   <p>
-                    식재료는 보통 묶음으로 구매하므로, <strong>이번 1인분 조리에 들어가는 분량만큼만 개당 단가로 환산</strong>한 실질 식비 견적입니다.
+                    식재료는 묶음으로 구매하므로, <strong>이번 1인분 조리에 들어가는 분량만큼만 개당 단가로 환산</strong>한 실질 식비 견적입니다.
                   </p>
                   <p className="text-[#D9D2BE]/70 pt-0.5">
-                    각 재료의 <span className="text-rose-300 font-bold">[쿠팡]</span> 또는 <span className="text-purple-300 font-bold">[컬리]</span> 버튼을 누르면 해당 쇼핑몰로 연결됩니다.
+                    각 재료의 <span className="text-purple-300 font-bold">[컬리 샛별배송]</span> 버튼을 누르면 마켓컬리로 이동하며, 오늘 밤 11시 전 주문 시 내일 아침 7시 문 앞까지 신선하게 배송됩니다.
                   </p>
                   <div className="pt-1 flex items-center justify-between">
                     <span className="text-[10px] text-[#D9D2BE]/50">앱/웹 연결 방식 재설정이 필요하신가요?</span>

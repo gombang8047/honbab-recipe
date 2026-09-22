@@ -2,7 +2,7 @@
  * 장바구니 로컬 스토리지 관리 및 실시간 동기화 서비스
  */
 
-import { getIngredientPricing } from './ingredientPricing';
+import { getIngredientPricing, isFreeBasicIngredient } from './ingredientPricing';
 
 export interface CartIngredient {
   id: string; // 고유 ID (recipeId + ingredientName)
@@ -81,7 +81,20 @@ export const cartService = {
         localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(INITIAL_CART_SAMPLE));
         return INITIAL_CART_SAMPLE;
       }
-      return JSON.parse(raw);
+      const list: CartIngredient[] = JSON.parse(raw);
+      // 조리용 물 등 가정 내 기본 무료 재료는 구매 목록에서 기본적으로 '집에 있음'(체크 해제)으로 자동 보정
+      let modified = false;
+      const sanitized = list.map((item) => {
+        if (isFreeBasicIngredient(item.name) && item.checked) {
+          modified = true;
+          return { ...item, checked: false };
+        }
+        return item;
+      });
+      if (modified) {
+        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(sanitized));
+      }
+      return sanitized;
     } catch {
       return [];
     }
@@ -109,11 +122,14 @@ export const cartService = {
     recipe.ingredients.forEach((ing) => {
       const uniqueId = `${recipe.id}_${ing.ingredientId}_${ing.name}`;
       const existingIndex = newItems.findIndex((item) => item.id === uniqueId || (item.recipeId === recipe.id && item.name === ing.name));
+      const isFree = isFreeBasicIngredient(ing.name);
 
       if (existingIndex >= 0) {
         // 이미 있으면 수량 1 증가
         newItems[existingIndex].quantity += 1;
-        newItems[existingIndex].checked = true;
+        if (!isFree) {
+          newItems[existingIndex].checked = true;
+        }
       } else {
         const pricing = getIngredientPricing(ing.name, ing.amount, ing.unit);
         newItems.push({
@@ -124,7 +140,7 @@ export const cartService = {
           amount: ing.amount,
           unit: ing.unit,
           isEssential: ing.isEssential ?? true,
-          checked: true,
+          checked: !isFree, // 조리수 등 기본 재료는 기본 '집에 있음' (체크 해제)
           quantity: 1,
           estimatedPrice: pricing.tiers.value.estimatedPrice,
           addedAt: Date.now()

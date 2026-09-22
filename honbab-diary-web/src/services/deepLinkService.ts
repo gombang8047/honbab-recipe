@@ -105,5 +105,14 @@ export const deepLinkService = {
     // 설정된 선호도가 없으면 기본 앱 스킴 / 인텐트 시도
     this.openAppDirect(platform, ingredientName, fallbackWebUrl);
   },
+
+  /**
+   * 마켓컬리 샛별배송 원클릭 딥링크 (모바일 앱 우선 -> 웹 폴백)
+   */
+  openKurly(ingredientName: string, webUrl?: string) {
+    const encoded = encodeURIComponent(ingredientName);
+    const targetWebUrl = webUrl || `https://www.kurly.com/search?sword=${encoded}`;
+    this.openPlatform('kurly', ingredientName, targetWebUrl);
+  },
 };
 
