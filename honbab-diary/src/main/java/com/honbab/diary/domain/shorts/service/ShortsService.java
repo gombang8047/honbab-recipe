@@ -17,6 +17,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+
 @Service
 @RequiredArgsConstructor
 @Transactional(readOnly = true)
@@ -44,7 +45,7 @@ public class ShortsService {
     }
 
     /**
-     * 무작위(랜덤) 쇼츠 조회
+     * DB 랜덤 조회 후 태그는 기존 Hibernate 배치 로딩 설정으로 가져온다.
      */
     public Page<ShortsResponse> getRandom(Pageable pageable) {
         return shortsRepository.findRandomShorts(pageable)

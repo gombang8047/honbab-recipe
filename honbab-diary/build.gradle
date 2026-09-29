@@ -81,4 +81,11 @@ clean.doLast {
 
 tasks.named('test') {
     useJUnitPlatform()
+
+    // 테스트 실행 중 System.out.println 출력을 콘솔에 표시
+    testLogging {
+        showStandardStreams = true
+        events "passed", "failed", "skipped"
+        exceptionFormat "full"
+    }
 }
