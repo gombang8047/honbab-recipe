@@ -39,24 +39,27 @@ export const AiConversionModal: React.FC<AiConversionModalProps> = ({ isOpen, sh
           </p>
         </div>
 
-        {/* Steps checklist */}
+        {/* 실제 백엔드 파이프라인 안내 (세부 단계별 진행률은 제공하지 않음) */}
         <div className="w-full bg-[#0D2418]/90 rounded-xl p-4 flex flex-col gap-2.5 text-left text-xs text-stone-200 border border-[#D4AF37]/30 transition-all">
-          <div className="flex items-center gap-2 text-[#D4AF37] font-semibold">
-            <CheckCircle2 size={16} />
-            <span>Whisper STT 영상 자막 추출 완료</span>
-          </div>
-          <div className={`flex items-center gap-2 font-medium ${isReady ? 'text-[#D4AF37] font-semibold' : 'text-[#FDFBF4] animate-pulse'}`}>
-            {isReady ? <CheckCircle2 size={16} /> : <Sparkles size={16} className="text-[#D4AF37]" />}
-            <span>GPT-4o 1인분 기준 재료 및 조리법 분석 {isReady ? '완료' : '중'}</span>
-          </div>
-          <div className={`flex items-center gap-2 ${isReady ? 'text-[#D4AF37] font-semibold' : 'text-[#B8AF98]'}`}>
-            {isReady ? (
-              <CheckCircle2 size={16} />
-            ) : (
-              <div className="w-4 h-4 rounded-full border-2 border-[#D4AF37] border-t-transparent animate-spin" />
-            )}
-            <span>최저가 재료 상품 매핑 {isReady ? '완료' : '진행 중'}</span>
-          </div>
+          {[
+            'YouTube 영상 정보와 댓글 확인',
+            'Gemini 멀티모달 1인분 레시피 분석',
+            '재료·조리 단계 구조화 및 저장',
+          ].map((step) => (
+            <div
+              key={step}
+              className={`flex items-center gap-2 font-medium ${
+                isReady ? 'text-[#D4AF37] font-semibold' : 'text-[#FDFBF4]'
+              }`}
+            >
+              {isReady ? (
+                <CheckCircle2 size={16} />
+              ) : (
+                <span className="w-1.5 h-1.5 ml-[5px] mr-[5px] rounded-full bg-[#D4AF37]" />
+              )}
+              <span>{step}{isReady ? ' 완료' : ''}</span>
+            </div>
+          ))}
         </div>
 
         <span className={`text-[11px] font-medium transition-colors ${isReady ? 'text-[#D4AF37] animate-pulse' : 'text-[#D9D2BE]'}`}>
