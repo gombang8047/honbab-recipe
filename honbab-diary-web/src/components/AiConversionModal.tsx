@@ -41,6 +41,12 @@ export const AiConversionModal: React.FC<AiConversionModalProps> = ({ isOpen, sh
 
         {/* 실제 백엔드 파이프라인 안내 (세부 단계별 진행률은 제공하지 않음) */}
         <div className="w-full bg-[#0D2418]/90 rounded-xl p-4 flex flex-col gap-2.5 text-left text-xs text-stone-200 border border-[#D4AF37]/30 transition-all">
+          {!isReady && (
+            <div className="flex items-center gap-2 pb-2 mb-0.5 border-b border-[#D4AF37]/20 text-[#D4AF37] font-semibold">
+              <div className="w-4 h-4 rounded-full border-2 border-[#D4AF37] border-t-transparent animate-spin" />
+              <span>AI 레시피 파이프라인 처리 중...</span>
+            </div>
+          )}
           {[
             'YouTube 영상 정보와 댓글 확인',
             'Gemini 멀티모달 1인분 레시피 분석',
