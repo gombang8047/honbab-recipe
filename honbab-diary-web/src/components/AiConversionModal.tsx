@@ -49,7 +49,7 @@ export const AiConversionModal: React.FC<AiConversionModalProps> = ({ isOpen, sh
           )}
           {[
             'YouTube 영상 정보와 댓글 확인',
-            'Gemini 멀티모달 1인분 레시피 분석',
+            'Gemini AI 1인분 레시피 분석',
             '재료·조리 단계 구조화 및 저장',
           ].map((step) => (
             <div
