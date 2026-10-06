@@ -9,6 +9,8 @@ node_modules/
 # Java / Gradle build output
 .gradle/
 **/.gradle/
+.gradle-user-home/
+**/.gradle-user-home/
 build/
 **/build/
 out/

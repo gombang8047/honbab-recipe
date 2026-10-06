@@ -89,3 +89,73 @@ tasks.named('test') {
         exceptionFormat "full"
     }
 }
+
+tasks.register('productMappingBenchmark', Test) {
+    group = 'verification'
+    description = '상품 매핑 반복 조회와 IN 일괄 조회 벤치마크를 실행합니다.'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter {
+        includeTestsMatching '*ProductMappingBatchLookupBenchmarkTest*'
+    }
+    maxParallelForks = 1
+    outputs.upToDateWhen { false }
+
+    testLogging {
+        showStandardStreams = false
+        events "passed", "failed", "skipped"
+        exceptionFormat "full"
+    }
+
+    doLast {
+        def resultFile = file("${buildDir}/test-results/productMappingBenchmark/TEST-com.honbab.diary.domain.cart.ProductMappingBatchLookupBenchmarkTest.xml")
+        if (!resultFile.exists()) {
+            println '벤치마크 결과 XML을 찾지 못했습니다.'
+            return
+        }
+
+        def systemOut = new XmlSlurper().parse(resultFile).'system-out'.text()
+        def lines = systemOut.readLines()
+        def context = lines.find { it.startsWith('PRODUCT_MAPPING ') }
+        def before = lines.find { it.startsWith('ALL BEFORE ') }
+        def after = lines.find { it.startsWith('ALL AFTER ') }
+        def changeLine = lines.find { it.startsWith('MEAN_CHANGE=') }
+
+        if (context == null || before == null || after == null || changeLine == null) {
+            println '벤치마크 요약 수치를 찾지 못했습니다. 테스트 HTML 리포트를 확인하세요.'
+            return
+        }
+
+        def extract = { String value, String pattern ->
+            def matcher = value =~ pattern
+            matcher.find() ? matcher.group(1) : 'N/A'
+        }
+        def ingredientCount = extract(context, /ingredientIds=(\d+)/)
+        def iterations = extract(before, /n=(\d+)/)
+        def beforeMean = extract(before, /mean=([0-9.]+)ms/)
+        def beforeP95 = extract(before, /p95=([0-9.]+)ms/)
+        def beforeSql = extract(before, /SQL_mean=([0-9.]+)/)
+        def afterMean = extract(after, /mean=([0-9.]+)ms/)
+        def afterP95 = extract(after, /p95=([0-9.]+)ms/)
+        def afterSql = extract(after, /SQL_mean=([0-9.]+)/)
+        def meanChange = extract(changeLine, /MEAN_CHANGE=([+-]?[0-9.]+)%/)
+        def changeDescription = meanChange != 'N/A' && meanChange.toBigDecimal() < 0
+                ? "${meanChange.toBigDecimal().abs()}% 감소"
+                : "${meanChange}% 변화"
+
+        println ''
+        println '=================================================================='
+        println ' 상품 매핑 조회 최적화 벤치마크 최종 요약'
+        println '------------------------------------------------------------------'
+        println " 실제 레시피 재료 수 : ${ingredientCount}개"
+        println " 비교 횟수            : 방식별 ${iterations}회"
+        println " 기존 N회 조회        : 평균 ${beforeMean}ms | p95 ${beforeP95}ms | SQL ${beforeSql}회"
+        println " 개선 IN 일괄 조회    : 평균 ${afterMean}ms | p95 ${afterP95}ms | SQL ${afterSql}회"
+        println " 평균 처리시간 변화   : ${changeDescription}"
+        println ' 결과 정확성          : 동일 결과 검증 통과'
+        println ' 측정 범위            : 읽기 전용 트랜잭션의 상품 매핑 DB 조회'
+        println ' 제외 범위            : 장바구니 쓰기, HTTP, JSON 직렬화'
+        println '=================================================================='
+    }
+}

@@ -18,7 +18,9 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @Service
@@ -49,12 +51,18 @@ public class CartService {
 
         Cart cart = getOrCreateActiveCart(userId);
 
-        for (RecipeIngredient ri : recipe.getIngredients()) {
-            List<ProductMapping> mappings = productMappingRepository
-                    .findByIngredientId(ri.getIngredient().getId());
+        List<Long> ingredientIds = recipe.getIngredients().stream()
+                .map(ri -> ri.getIngredient().getId())
+                .distinct()
+                .toList();
+        Map<Long, ProductMapping> firstMappingByIngredientId = new LinkedHashMap<>();
+        productMappingRepository.findByIngredientIdInOrderByIdAsc(ingredientIds)
+                .forEach(mapping -> firstMappingByIngredientId.putIfAbsent(
+                        mapping.getIngredient().getId(), mapping));
 
-            if (!mappings.isEmpty()) {
-                ProductMapping mapping = mappings.get(0); // 가장 첫 번째 매핑 사용
+        for (RecipeIngredient ri : recipe.getIngredients()) {
+            ProductMapping mapping = firstMappingByIngredientId.get(ri.getIngredient().getId());
+            if (mapping != null) {
                 CartItem item = CartItem.builder()
                         .cart(cart)
                         .productMapping(mapping)
