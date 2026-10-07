@@ -1,4 +1,5 @@
 import { apiClient } from './api';
+import { cartService } from './cartService';
 
 export interface TokenResponse {
   accessToken: string;
@@ -19,6 +20,8 @@ export const authApi = {
       const tokenData: TokenResponse = res?.data || res;
 
       if (tokenData?.accessToken && typeof window !== 'undefined') {
+        // Do not inherit the previous account's profile when a field is absent.
+        ['refreshToken', 'userNickname', 'userProfileImage'].forEach(key => localStorage.removeItem(key));
         localStorage.setItem('accessToken', tokenData.accessToken);
         if (tokenData.refreshToken) {
           localStorage.setItem('refreshToken', tokenData.refreshToken);
@@ -29,6 +32,10 @@ export const authApi = {
         if (tokenData.profileImageUrl) {
           localStorage.setItem('userProfileImage', tokenData.profileImageUrl);
         }
+        // Login remains successful even if a later cart migration needs retrying.
+        await cartService.mergeGuestCart().catch(() => {
+          window.alert('로그인은 완료됐지만 장바구니 동기화에 실패했습니다. 장바구니 화면에서 다시 시도해 주세요.');
+        });
         window.dispatchEvent(new Event('auth-change'));
       }
       return tokenData;

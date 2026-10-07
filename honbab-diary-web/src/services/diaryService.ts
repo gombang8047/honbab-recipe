@@ -1,3 +1,5 @@
+import { getAccountId, requireLogin } from './authSession';
+import { apiClient } from './api';
 /**
  * 혼밥 요리 일기장 및 게이미피케이션(경험치, 레벨, 스트릭) 서비스
  */
@@ -240,132 +242,105 @@ export interface LoginXpResult {
   levelInfo: UserLevelInfo;
 }
 
-const DIARY_STORAGE_KEY = 'honbab_cooking_diaries';
-const USER_XP_KEY = 'honbab_user_xp';
-const LAST_LOGIN_DATE_KEY = 'honbab_last_login_xp_date';
-const LOGIN_STREAK_KEY = 'honbab_login_streak';
-const DAILY_DIARY_XP_DATE_KEY = 'honbab_daily_diary_xp_date';
-const DAILY_DIARY_XP_AMOUNT_KEY = 'honbab_daily_diary_xp_amount';
 
-export const DAILY_MAX_DIARY_XP = 400; // 하루 최대 요리일기 획득 경험치
+interface Snapshot {
+  entries: CookingDiaryEntry[];
+  totalXp: number;
+  lastLoginDate: string | null;
+  loginStreak: number;
+  todayEarnedXp: number;
+}
+const empty = (): Snapshot => ({ entries: [], totalXp: 0, lastLoginDate: null, loginStreak: 0, todayEarnedXp: 0 });
+let owner: string | null = null;
+let snapshot = empty();
+const loads = new Map<string, Promise<Snapshot>>();
+export const DAILY_MAX_DIARY_XP = 400;
 
-/**
- * 오늘 획득한 요리일기 누적 경험치 조회
- */
-const getTodayEarnedDiaryXp = (): number => {
-  if (typeof window === 'undefined') return 0;
-  const todayStr = new Date().toISOString().slice(0, 10);
-  const storedDate = localStorage.getItem(DAILY_DIARY_XP_DATE_KEY);
-  if (storedDate !== todayStr) {
-    return 0;
+function cached() {
+  const account = getAccountId();
+  if (!account || owner !== account) { owner = account; snapshot = empty(); }
+  return snapshot;
+}
+function account(): string {
+  if (!requireLogin()) throw new Error('로그인이 필요합니다.');
+  return getAccountId()!;
+}
+function commit(id: string, next: Snapshot): Snapshot {
+  if (getAccountId() !== id) throw new Error('계정이 변경되었습니다.');
+  owner = id;
+  snapshot = next;
+  window.dispatchEvent(new CustomEvent('diary-updated'));
+  return next;
+}
+async function photoForUpload(photo: string): Promise<string> {
+  if (!photo.startsWith('data:image/') || photo.length <= 1500000) return photo;
+  const image = await new Promise<HTMLImageElement>((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('사진을 읽을 수 없습니다.'));
+    img.src = photo;
+  });
+  const ratio = Math.min(1, 1280 / Math.max(image.width, image.height));
+  const canvas = document.createElement('canvas');
+  canvas.width = Math.max(1, Math.round(image.width * ratio));
+  canvas.height = Math.max(1, Math.round(image.height * ratio));
+  const context = canvas.getContext('2d');
+  if (!context) throw new Error('사진을 처리할 수 없습니다.');
+  context.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const compressed = canvas.toDataURL('image/jpeg', 0.82);
+  if (compressed.length > 3000000) throw new Error('더 작은 사진을 선택해 주세요.');
+  return compressed;
+}
+async function inputFor(entry: {
+  id: string; recipeId: number; shortsId?: number; recipeTitle: string;
+  photoUrl: string; rating: number; comment: string; privateDiary?: string; createdAt: number;
+}) {
+  return {
+    id: entry.id, recipeId: entry.recipeId || 0, shortsId: entry.shortsId || null,
+    recipeTitle: entry.recipeTitle, photoUrl: await photoForUpload(entry.photoUrl),
+    rating: entry.rating, comment: entry.comment, privateDiary: entry.privateDiary || null,
+    createdAt: entry.createdAt,
+  };
+}
+async function importStored(id: string) {
+  const key = 'honbab_cooking_diaries:user:' + id;
+  const marker = key + ':server-migrated-v2';
+  if (localStorage.getItem(marker)) return;
+  const raw = localStorage.getItem(key);
+  if (!raw) return;
+  const entries: CookingDiaryEntry[] = JSON.parse(raw);
+  if (!Array.isArray(entries)) throw new Error('기존 일기 데이터를 확인해 주세요.');
+  for (const entry of entries.filter(entry => !entry.id.startsWith('sample_diary_'))) {
+    const input = await inputFor(entry);
+    if (getAccountId() !== id) throw new Error('계정이 변경되었습니다.');
+    const res: any = await apiClient.post('/diaries/import', [input]);
+    commit(id, res.data);
   }
-  return Number(localStorage.getItem(DAILY_DIARY_XP_AMOUNT_KEY)) || 0;
+  // Backups are not deleted. Server-side client IDs make a retry safe.
+  if (getAccountId() === id) localStorage.setItem(marker, 'true');
+}
+async function refresh(): Promise<Snapshot> {
+  const id = getAccountId();
+  if (!id) return cached();
+  const existing = loads.get(id);
+  if (existing) return existing;
+  const task = (async () => {
+    await importStored(id);
+    if (getAccountId() !== id) throw new Error('계정이 변경되었습니다.');
+    const res: any = await apiClient.get('/diaries');
+    return commit(id, res.data);
+  })();
+  loads.set(id, task);
+  try { return await task; } finally { if (loads.get(id) === task) loads.delete(id); }
+}
+const getDiaries = () => {
+  const current = cached();
+  const level = getUserLevelInfo(current.totalXp);
+  return current.entries.map(entry => ({ ...entry, userLevel: level.level, userLevelTitle: level.title }));
 };
-
-
-// 초기 커뮤니티 목데이터 제거 (사용자가 직접 작성한 일기만 유지)
-const INITIAL_COMMUNITY_DIARIES: CookingDiaryEntry[] = [];
-
-/**
- * 저장된 전체 요리 일기 목록 조회 (순수 사용자 작성 데이터만 조회)
- */
-const getDiaries = (): CookingDiaryEntry[] => {
-  if (typeof window === 'undefined') return [];
-  try {
-    const saved = localStorage.getItem(DIARY_STORAGE_KEY);
-    if (!saved) {
-      return [];
-    }
-    const list: CookingDiaryEntry[] = JSON.parse(saved);
-    // 기존에 저장되어 있던 샘플 목데이터(sample_diary_*)가 있다면 영구 필터링 삭제
-    const cleanList = Array.isArray(list) ? list.filter((d) => !d.id.startsWith('sample_diary_')) : [];
-    if (cleanList.length !== list.length) {
-      localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(cleanList));
-    }
-    return cleanList;
-  } catch {
-    return [];
-  }
-};
-
-/**
- * 특정 레시피에 해당하는 일기 목록 (최신순)
- * - recipeId 일치 확인
- * - shortsId 일치 확인 (레시피 생성 전 쇼츠 ID로 작성된 일기 및 과거 일기 완벽 호환)
- */
-const getDiariesByRecipe = (recipeId: number, shortsId?: number): CookingDiaryEntry[] => {
-  const list = getDiaries();
-  return list
-    .filter((d) => {
-      if (recipeId > 0 && d.recipeId === recipeId) return true;
-      if (shortsId && shortsId > 0) {
-        if (d.shortsId === shortsId) return true;
-        if (d.recipeId === shortsId) return true; // 기존에 shortsId가 recipeId에 들어갔던 과거 일기 호환
-      }
-      return false;
-    })
-    .sort((a, b) => b.createdAt - a.createdAt);
-};
-
-/**
- * 레시피 ID 동기화 (레시피 생성 전 쇼츠 ID로 작성된 일기들을 실제 생성된 레시피 ID로 자동 보정)
- */
-const syncRecipeIdForDiaries = (shortsId: number, actualRecipeId: number) => {
-  if (typeof window === 'undefined' || !shortsId || !actualRecipeId) return;
-  try {
-    const list = getDiaries();
-    let updated = false;
-    const syncedList = list.map((d) => {
-      if ((d.shortsId === shortsId || d.recipeId === shortsId) && d.recipeId !== actualRecipeId) {
-        updated = true;
-        return { ...d, recipeId: actualRecipeId, shortsId: shortsId };
-      }
-      return d;
-    });
-    if (updated) {
-      localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(syncedList));
-      window.dispatchEvent(new CustomEvent('diary-updated'));
-    }
-  } catch (err) {
-    console.error('일기 레시피 ID 동기화 실패:', err);
-  }
-};
-
-/**
- * 내가 직접 작성한 일기 목록 (마이페이지 갤러리용)
- */
-const getMyDiaries = (): CookingDiaryEntry[] => {
-  const list = getDiaries();
-  const currentNickname = (typeof window !== 'undefined' && localStorage.getItem('userNickname')) || '자취 미식가';
-
-  return list
-    .filter((d) => {
-      // 1. 직접 작성 플래그가 true이거나
-      if (d.isMyEntry) return true;
-      // 2. 닉네임이 일치하거나
-      if (d.userNickname === currentNickname || d.authorName === currentNickname) return true;
-      return false;
-    })
-    .sort((a, b) => b.createdAt - a.createdAt);
-};
-
-
-/**
- * 사용자의 현재 누적 경험치 조회
- */
-const getUserXp = (): number => {
-  if (typeof window === 'undefined') return 350;
-  const val = localStorage.getItem(USER_XP_KEY);
-  if (!val) {
-    localStorage.setItem(USER_XP_KEY, '350');
-    return 350;
-  }
-  return Number(val) || 0;
-};
-
-/**
- * 현재 경험치를 바탕으로 레벨 및 진행률 정보 계산
- */
+const getMyDiaries = getDiaries;
+const getUserXp = () => cached().totalXp;
+const getTodayEarnedDiaryXp = () => cached().todayEarnedXp;
 const getUserLevelInfo = (customXp?: number): UserLevelInfo => {
   const xp = customXp !== undefined ? customXp : getUserXp();
   let currentTier = LEVEL_TIERS[0];
@@ -401,312 +376,108 @@ const getUserLevelInfo = (customXp?: number): UserLevelInfo => {
   };
 };
 
-/**
- * 연속 작성 일수(스트릭 🔥) 계산
- */
+
 const getStreakDays = (): number => {
-  const myDiaries = getMyDiaries();
-  if (myDiaries.length === 0) return 1;
-
-  const dates: string[] = myDiaries.map((d) => {
-    const date = new Date(d.createdAt);
-    return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
-  });
-
-  const uniqueDates: string[] = Array.from(new Set(dates)).sort().reverse();
-  if (uniqueDates.length === 0) return 1;
-
-  let streak = 1;
-  let curr = new Date(uniqueDates[0]);
-
-  for (let i = 1; i < uniqueDates.length; i++) {
-    const prev = new Date(uniqueDates[i]);
-    const diffDays = Math.round((curr.getTime() - prev.getTime()) / (1000 * 60 * 60 * 24));
-    if (diffDays === 1) {
-      streak++;
-      curr = prev;
-    } else {
-      break;
-    }
-  }
-
-  return Math.max(1, streak);
+  const dates = new Set(getMyDiaries().map(entry => {
+    const date = new Date(entry.createdAt);
+    return new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(date);
+  }));
+  const today = new Date();
+  let date = new Date(today);
+  const key = (value: Date) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(value);
+  if (!dates.has(key(date))) date.setDate(date.getDate() - 1);
+  let streak = 0;
+  while (dates.has(key(date))) { streak++; date.setDate(date.getDate() - 1); }
+  return streak;
 };
+const getDiariesByRecipe = (recipeId: number, shortsId?: number) => getDiaries().filter(entry =>
+  (recipeId > 0 && entry.recipeId === recipeId) ||
+  (!!shortsId && (entry.shortsId === shortsId || (!entry.shortsId && entry.recipeId === shortsId))));
 
-/**
- * 새 요리 일기 등록 (사진 + 한줄평 필수)
- */
-const addDiaryEntry = (params: {
-  recipeId: number;
-  shortsId?: number;
-  recipeTitle: string;
-  photoUrl: string;
-  rating: number;
-  comment: string;
-  privateDiary?: string;
-}): {
-  entry: CookingDiaryEntry;
-  earnedXp: number;
-  rawEarnedXp: number;
-  streakBonus: number;
-  newTotalXp: number;
-  isLevelUp: boolean;
-  levelInfo: UserLevelInfo;
-  todayEarnedXp: number;
-  isDailyLimitReached: boolean;
-} => {
-  const prevXp = getUserXp();
-  const prevLevelInfo = getUserLevelInfo(prevXp);
-  const currentStreak = getStreakDays();
-
-  // 1. 경험치 산정: 기본 100 XP + 스트릭 보너스 (하루 최대 400 XP 제한 적용)
-  const baseEarnedXp = 100;
-  let streakBonus = 0;
-  if (currentStreak >= 7) streakBonus = 200;
-  else if (currentStreak >= 3) streakBonus = 60;
-  else if (currentStreak >= 2) streakBonus = 30;
-
-  const rawEarnedXp = baseEarnedXp + streakBonus;
-
-  // 당일 누적 획득량 확인 및 한도(400 XP) 적용
-  const todayEarned = getTodayEarnedDiaryXp();
-  const availableXpQuota = Math.max(0, DAILY_MAX_DIARY_XP - todayEarned);
-  const actualEarnedXp = Math.min(rawEarnedXp, availableXpQuota);
-  const newTotalXp = prevXp + actualEarnedXp;
-
-  // 당일 누적 기록 갱신
-  if (typeof window !== 'undefined') {
-    const todayStr = new Date().toISOString().slice(0, 10);
-    localStorage.setItem(DAILY_DIARY_XP_DATE_KEY, todayStr);
-    localStorage.setItem(DAILY_DIARY_XP_AMOUNT_KEY, (todayEarned + actualEarnedXp).toString());
-  }
-
-
-  // 2. 일기 엔트리 객체 생성
-  const userNickname = (typeof window !== 'undefined' && localStorage.getItem('userNickname')) || '자취 미식가';
-  const newEntry: CookingDiaryEntry = {
-    id: `diary_${Date.now()}_${Math.random().toString(36).substr(2, 6)}`,
-    recipeId: params.recipeId,
-    shortsId: params.shortsId,
-    recipeTitle: params.recipeTitle,
-    photoUrl: params.photoUrl,
-    rating: params.rating,
-    comment: params.comment.trim(),
-    privateDiary: params.privateDiary?.trim() || undefined,
-    userNickname,
-    authorName: userNickname,
-    userLevel: prevLevelInfo.level,
-    userLevelTitle: prevLevelInfo.title,
-    createdAt: Date.now(),
-    likes: 1, // 본인 자동 좋아요 1개
-    likedByMe: true,
-    isLiked: true,
-    isMyEntry: true,
-    streakDay: currentStreak + 1
-  };
-
-  // 3. 로컬 스토리지 저장 (용량 초과 QuotaExceeded 방지 안심 로직)
-  const currentList = getDiaries();
-  const updatedList = [newEntry, ...currentList];
-  if (typeof window !== 'undefined') {
-    try {
-      localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(updatedList));
-      localStorage.setItem(USER_XP_KEY, newTotalXp.toString());
-    } catch (storageError) {
-      console.warn('localStorage 용량 초과 발생, 오래된 사진 항목 정리 시도:', storageError);
-      // 저장 공간 부족 시, 가장 오래된 일기 목록의 대용량 사진 데이터 경량화 후 재시도
-      try {
-        const compactList = updatedList.map((entry, idx) => {
-          if (idx > 5 && entry.photoUrl && entry.photoUrl.startsWith('data:image')) {
-            return { ...entry, photoUrl: '' }; // 오래된 일기의 무거운 base64 제거
-          }
-          return entry;
-        });
-        localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(compactList));
-        localStorage.setItem(USER_XP_KEY, newTotalXp.toString());
-      } catch (finalError) {
-        console.error('로컬스토리지 최종 저장 실패:', finalError);
-      }
-    }
-    // 전역 이벤트 발행
-    window.dispatchEvent(new CustomEvent('diary-added', { detail: newEntry }));
-  }
-
-
-  const newLevelInfo = getUserLevelInfo(newTotalXp);
-  const isLevelUp = newLevelInfo.level > prevLevelInfo.level;
-
+async function addDiaryEntry(params: {
+  id?: string; recipeId: number; shortsId?: number; recipeTitle: string; photoUrl: string;
+  rating: number; comment: string; privateDiary?: string;
+}) {
+  const id = account();
+  await refresh();
+  const before = getUserLevelInfo();
+  const input = await inputFor({ ...params, id: params.id || 'diary_' + crypto.randomUUID(), createdAt: Date.now() });
+  if (getAccountId() !== id) throw new Error('계정이 변경되었습니다.');
+  const res: any = await apiClient.post('/diaries', input);
+  const result = res.data;
+  commit(id, result.snapshot);
+  const entry = getDiaries().find(entry => entry.id === result.entryId);
+  if (!entry) throw new Error('저장된 일기를 확인할 수 없습니다.');
+  const levelInfo = getUserLevelInfo();
   return {
-    entry: newEntry,
-    earnedXp: actualEarnedXp,
-    rawEarnedXp,
-    streakBonus,
-    newTotalXp,
-    isLevelUp,
-    levelInfo: newLevelInfo,
-    todayEarnedXp: todayEarned + actualEarnedXp,
-    isDailyLimitReached: todayEarned + actualEarnedXp >= DAILY_MAX_DIARY_XP
+    entry, earnedXp: result.earnedXp, rawEarnedXp: result.rawEarnedXp,
+    streakBonus: result.streakBonus, newTotalXp: getUserXp(),
+    isLevelUp: levelInfo.level > before.level, levelInfo,
+    todayEarnedXp: getTodayEarnedDiaryXp(),
+    isDailyLimitReached: getTodayEarnedDiaryXp() >= DAILY_MAX_DIARY_XP,
   };
-};
-
-
-/**
- * '맛있어 보여요 😋' 좋아요 토글
- */
-const toggleLike = (diaryId: string): CookingDiaryEntry[] => {
-  const list = getDiaries();
-  const updated = list.map((d) => {
-    if (d.id === diaryId) {
-      const nextLiked = !d.likedByMe;
-      return {
-        ...d,
-        likedByMe: nextLiked,
-        isLiked: nextLiked,
-        likes: nextLiked ? d.likes + 1 : Math.max(0, d.likes - 1)
-      };
-    }
-    return d;
-  });
-
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(updated));
-    window.dispatchEvent(new CustomEvent('diary-updated'));
-  }
-  return updated;
-};
-
-/**
- * 일기 삭제 (내 일기만 가능)
- */
-const deleteDiary = (diaryId: string): CookingDiaryEntry[] => {
-  const list = getDiaries();
-  const updated = list.filter((d) => d.id !== diaryId);
-  if (typeof window !== 'undefined') {
-    localStorage.setItem(DIARY_STORAGE_KEY, JSON.stringify(updated));
-    window.dispatchEvent(new CustomEvent('diary-updated'));
-  }
-  return updated;
-};
-
-/**
- * 당일 첫 방문/접속 시 백그라운드에서 조용히 접속 경험치(+15 XP 및 연속 방문 보너스) 자동 부여
- * (별도 팝업/알림 없이 사용자가 눈치채지 못하게 이미 레벨/경험치에 자연스럽게 반영되어 있도록 처리)
- */
-const checkAndAwardLoginXp = (): LoginXpResult => {
-  const currentXp = getUserXp();
-  const currentLevelInfo = getUserLevelInfo(currentXp);
-
-  if (typeof window === 'undefined') {
-    return {
-      awarded: false,
-      earnedXp: 0,
-      loginStreak: 1,
-      newTotalXp: currentXp,
-      isLevelUp: false,
-      levelInfo: currentLevelInfo,
-    };
-  }
-
-  const todayObj = new Date();
-  const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
-  const lastLoginDate = localStorage.getItem(LAST_LOGIN_DATE_KEY);
-  const storedStreak = Number(localStorage.getItem(LOGIN_STREAK_KEY)) || 1;
-
-  // 오늘 이미 접속 경험치가 지급되었으면 통과
-  if (lastLoginDate === todayStr) {
-    return {
-      awarded: false,
-      earnedXp: 0,
-      loginStreak: storedStreak,
-      newTotalXp: currentXp,
-      isLevelUp: false,
-      levelInfo: currentLevelInfo,
-    };
-  }
-
-  // 연속 출석 일수 계산
-  let newStreak = 1;
-  if (lastLoginDate) {
-    const lastParts = lastLoginDate.split('-').map(Number);
-    if (lastParts.length === 3) {
-      const lastUtc = Date.UTC(lastParts[0], lastParts[1] - 1, lastParts[2]);
-      const todayUtc = Date.UTC(todayObj.getFullYear(), todayObj.getMonth(), todayObj.getDate());
-      const diffDays = Math.round((todayUtc - lastUtc) / (1000 * 60 * 60 * 24));
-
-      if (diffDays === 1) {
-        // 어제 접속한 경우 연속 일수 +1
-        newStreak = storedStreak + 1;
-      } else if (diffDays > 1) {
-        // 하루 이상 건너뛴 경우 1일차로 리셋
-        newStreak = 1;
-      }
-    }
-  }
-
-  // 접속 경험치 산정: 기본 15 XP + 연속 출석 소량 보너스
-  const baseLoginXp = 15;
-  let streakBonus = 0;
-  if (newStreak >= 7) streakBonus = 10;
-  else if (newStreak >= 3) streakBonus = 5;
-
-  const totalEarnedXp = baseLoginXp + streakBonus;
-  const newTotalXp = currentXp + totalEarnedXp;
-  const prevLevelInfo = currentLevelInfo;
-  const newLevelInfo = getUserLevelInfo(newTotalXp);
-  const isLevelUp = newLevelInfo.level > prevLevelInfo.level;
-
-  // 조용히 로컬 스토리지 갱신
-  localStorage.setItem(USER_XP_KEY, newTotalXp.toString());
-  localStorage.setItem(LAST_LOGIN_DATE_KEY, todayStr);
-  localStorage.setItem(LOGIN_STREAK_KEY, newStreak.toString());
-  localStorage.setItem('honbab_user_level', `Lv.${newLevelInfo.level}`);
-
-  // 전역 상태 갱신 이벤트 트리거 (알림 없이 수치만 자동 반영)
-  window.dispatchEvent(new CustomEvent('diary-updated'));
-  window.dispatchEvent(new Event('auth-change'));
-
+}
+async function toggleLike(diaryId: string) {
+  const id = account();
+  const entry = getDiaries().find(entry => entry.id === diaryId);
+  if (!entry) throw new Error('일기를 찾을 수 없습니다.');
+  const res: any = await apiClient.put('/diaries/' + encodeURIComponent(diaryId) + '/like', { liked: !entry.isLiked });
+  commit(id, res.data);
+  return getDiaries();
+}
+async function deleteDiary(diaryId: string) {
+  const id = account();
+  const res: any = await apiClient.delete('/diaries/' + encodeURIComponent(diaryId));
+  commit(id, res.data);
+  return getDiaries();
+}
+async function syncRecipeIdForDiaries(shortsId: number, recipeId: number) {
+  const id = getAccountId();
+  if (!id) return;
+  const res: any = await apiClient.post('/diaries/sync-recipe', { shortsId, recipeId });
+  commit(id, res.data);
+}
+async function checkAndAwardLoginXp(): Promise<LoginXpResult> {
+  const id = getAccountId();
+  if (!id) return { awarded: false, earnedXp: 0, loginStreak: 0, newTotalXp: 0, isLevelUp: false, levelInfo: getUserLevelInfo(0) };
+  await refresh();
+  const before = getUserLevelInfo();
+  if (getAccountId() !== id) throw new Error('계정이 변경되었습니다.');
+  const res: any = await apiClient.post('/diaries/login-xp');
+  commit(id, res.data.snapshot);
+  const levelInfo = getUserLevelInfo();
   return {
-    awarded: true,
-    earnedXp: totalEarnedXp,
-    loginStreak: newStreak,
-    newTotalXp,
-    isLevelUp,
-    levelInfo: newLevelInfo,
+    awarded: res.data.awarded, earnedXp: res.data.earnedXp, loginStreak: cached().loginStreak,
+    newTotalXp: getUserXp(), isLevelUp: levelInfo.level > before.level, levelInfo,
   };
-};
-
-/**
- * 일일 출석 및 접속 현황 정보 조회
- */
-const getLoginAttendanceInfo = () => {
-  if (typeof window === 'undefined') {
-    return { hasClaimedToday: true, streakDays: 1, lastDate: null };
-  }
-  const todayObj = new Date();
-  const todayStr = `${todayObj.getFullYear()}-${String(todayObj.getMonth() + 1).padStart(2, '0')}-${String(todayObj.getDate()).padStart(2, '0')}`;
-  const lastLoginDate = localStorage.getItem(LAST_LOGIN_DATE_KEY);
-  const streakDays = Number(localStorage.getItem(LOGIN_STREAK_KEY)) || 1;
-
-  return {
-    hasClaimedToday: lastLoginDate === todayStr,
-    streakDays,
-    lastDate: lastLoginDate,
-  };
-};
+}
+const getLoginAttendanceInfo = () => ({
+  hasClaimedToday: cached().lastLoginDate === new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul' }).format(new Date()),
+  streakDays: cached().loginStreak,
+  lastDate: cached().lastLoginDate,
+});
 
 export const diaryService = {
-  getDiaries,
-  getDiariesByRecipe,
-  getMyDiaries,
-  getUserXp,
-  getUserLevelInfo,
-  getStreakDays,
-  addDiaryEntry,
-  toggleLike,
-  deleteDiary,
-  checkAndAwardLoginXp,
-  getLoginAttendanceInfo,
-  getTodayEarnedDiaryXp,
-  syncRecipeIdForDiaries,
+  getLegacyEntries: (): CookingDiaryEntry[] => {
+    const raw = localStorage.getItem('honbab_cooking_diaries');
+    const entries = raw ? JSON.parse(raw) : [];
+    if (!Array.isArray(entries)) throw new Error('기존 일기 데이터를 확인해 주세요.');
+    return entries.filter(entry => !entry.id.startsWith('sample_diary_') &&
+      !localStorage.getItem('honbab_legacy_diary_claim:' + entry.id));
+  },
+  importLegacyEntries: async (ids: string[]): Promise<void> => {
+    const id = account();
+    for (const entry of diaryService.getLegacyEntries().filter(entry => ids.includes(entry.id))) {
+      const input = await inputFor(entry);
+      if (getAccountId() !== id) throw new Error('계정이 변경되었습니다.');
+      const res: any = await apiClient.post('/diaries/import', [input]);
+      commit(id, res.data);
+      localStorage.setItem('honbab_legacy_diary_claim:' + entry.id, id);
+    }
+  },
+  refresh, getDiaries, getDiariesByRecipe, getMyDiaries, getUserXp, getUserLevelInfo,
+  getStreakDays, addDiaryEntry, toggleLike, deleteDiary, checkAndAwardLoginXp,
+  getLoginAttendanceInfo, getTodayEarnedDiaryXp, syncRecipeIdForDiaries,
 };
+
 

@@ -83,12 +83,12 @@ function DiaryWriteContent() {
   // 북마크 및 쇼츠 풀 로드
   useEffect(() => {
     setMounted(true);
-    shortsApi.getBookmarks().then((bms) => {
+    shortsApi.getAllBookmarks().then((bms) => {
       setBookmarks(bms);
       if (bms.length === 0) {
         setSelectedTab('search');
       }
-    });
+    }).catch(() => { setBookmarks([]); setSelectedTab('search'); });
 
     shortsApi.getTrendingPaginated(0, 30).then((data) => {
       if (data.items && data.items.length > 0) {
@@ -98,6 +98,10 @@ function DiaryWriteContent() {
     });
 
     setTodayEarnedXp(diaryService.getTodayEarnedDiaryXp());
+    const updateQuota = () => setTodayEarnedXp(diaryService.getTodayEarnedDiaryXp());
+    diaryService.refresh().catch(() => window.alert('일기 정보를 불러오지 못했습니다. 서버 연결을 확인해 주세요.'));
+    window.addEventListener('diary-updated', updateQuota);
+    return () => window.removeEventListener('diary-updated', updateQuota);
   }, []);
 
   const handleSelectShorts = async (item: ShortsItem) => {
@@ -207,7 +211,9 @@ function DiaryWriteContent() {
   const isFormValid = photoUrl.trim().length > 0 && comment.trim().length >= 10;
 
   // 일기 등록 제출
-  const handleSubmit = (e: React.FormEvent) => {
+  const submissionId = useRef<string | null>(null);
+  const submissionSignature = useRef('');
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid || isSubmitting) return;
 
@@ -218,7 +224,12 @@ function DiaryWriteContent() {
       const finalRecipeId = linkedRecipeId || initialRecipeId || 0;
       const finalShortsId = linkedShortsId > 0 ? linkedShortsId : undefined;
       const finalTitle = customTitle.trim() || initialRecipeTitle || '오늘의 집밥 요리';
-      const res = diaryService.addDiaryEntry({
+      const signature = JSON.stringify([finalRecipeId, finalShortsId, finalTitle, photoUrl, rating, comment, privateDiary]);
+      if (submissionSignature.current !== signature) submissionId.current = null;
+      submissionSignature.current = signature;
+      submissionId.current ??= 'diary_' + crypto.randomUUID();
+      const res = await diaryService.addDiaryEntry({
+        id: submissionId.current,
         recipeId: finalRecipeId,
         shortsId: finalShortsId,
         recipeTitle: finalTitle,
@@ -228,6 +239,7 @@ function DiaryWriteContent() {
         privateDiary
       });
 
+      submissionId.current = null;
       soundService.playPaymentSuccess();
       setTodayEarnedXp(res.todayEarnedXp);
       setResultData({
@@ -243,13 +255,14 @@ function DiaryWriteContent() {
       });
     } catch (err: any) {
       console.error('일기 등록 실패:', err);
-      alert('일기 등록 중 오류가 발생했습니다: ' + (err?.message || '저장 공간을 확인해주세요.'));
+      alert('일기 등록 중 오류가 발생했습니다: ' + (err?.message || '서버 연결 또는 사진 크기를 확인해주세요.'));
     } finally {
       setIsSubmitting(false);
     }
   };
 
   const handleResetForm = () => {
+    submissionId.current = null;
     setPhotoUrl('');
     setRating(5);
     setComment('');

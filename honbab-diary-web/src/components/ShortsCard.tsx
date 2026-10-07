@@ -33,9 +33,7 @@ export const ShortsCard: React.FC<ShortsCardProps> = ({ shorts, onConvertAi, onP
   const toggleBookmark = async (e: React.MouseEvent) => {
     e.stopPropagation();
     soundService.playButtonClick();
-    const newStatus = !bookmarked;
-    setBookmarked(newStatus);
-    await shortsApi.toggleBookmark(shorts.id, bookmarked, shorts);
+    setBookmarked(await shortsApi.toggleBookmark(shorts.id, bookmarked, shorts));
   };
 
   return (

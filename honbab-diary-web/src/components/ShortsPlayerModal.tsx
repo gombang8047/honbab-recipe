@@ -41,9 +41,7 @@ export const ShortsPlayerModal: React.FC<ShortsPlayerModalProps> = ({
   const handleToggleBookmark = async () => {
     if (!shorts) return;
     soundService.playButtonClick();
-    const newStatus = !bookmarked;
-    setBookmarked(newStatus);
-    await shortsApi.toggleBookmark(shorts.id, bookmarked, shorts);
+    setBookmarked(await shortsApi.toggleBookmark(shorts.id, bookmarked, shorts));
   };
 
   // Close modal on ESC key

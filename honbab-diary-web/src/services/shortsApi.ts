@@ -1,4 +1,5 @@
 import { apiClient } from './api';
+import { getAccountId, requireLogin } from './authSession';
 
 export interface ShortsItem {
   id: number;
@@ -24,20 +25,15 @@ export interface PaginatedShorts {
   page: number;
 }
 
-// Sync bookmarked status from localStorage
-function syncWithLocalBookmarks(items: ShortsItem[]): ShortsItem[] {
-  if (typeof window === 'undefined') return items;
+// Bookmark state comes from the authenticated server, never a shared local cache.
+async function syncWithLocalBookmarks(items: ShortsItem[]): Promise<ShortsItem[]> {
+  if (!getAccountId()) return items.map(item => ({ ...item, bookmarked: false }));
   try {
-    const localSaved = localStorage.getItem('honbab_local_bookmarks');
-    if (!localSaved) return items;
-    const list: ShortsItem[] = JSON.parse(localSaved);
-    const bookmarkedIds = new Set(list.map((s) => s.id));
-    return items.map((item) => ({
-      ...item,
-      bookmarked: bookmarkedIds.has(item.id),
-    }));
+    const saved = await shortsApi.getAllBookmarks();
+    const ids = new Set(saved.map(item => item.id));
+    return items.map(item => ({ ...item, bookmarked: ids.has(item.id) }));
   } catch {
-    return items;
+    return items.map(item => ({ ...item, bookmarked: false }));
   }
 }
 
@@ -51,7 +47,7 @@ export const shortsApi = {
       const data = res.data;
       if (data && Array.isArray(data.content)) {
         return {
-          items: syncWithLocalBookmarks(data.content),
+          items: await syncWithLocalBookmarks(data.content),
           hasMore: !data.last,
           totalElements: data.totalElements,
           page: data.number ?? page,
@@ -79,7 +75,7 @@ export const shortsApi = {
       const data = res.data;
       if (data && Array.isArray(data.content)) {
         return {
-          items: syncWithLocalBookmarks(data.content),
+          items: await syncWithLocalBookmarks(data.content),
           hasMore: !data.last,
           totalElements: data.totalElements,
           page: data.number ?? page,
@@ -108,7 +104,7 @@ export const shortsApi = {
       const data = res.data;
       if (data && Array.isArray(data.content) && data.content.length > 0) {
         return {
-          items: syncWithLocalBookmarks(data.content),
+          items: await syncWithLocalBookmarks(data.content),
           hasMore: !data.last,
           totalElements: data.totalElements,
           page: data.number ?? page,
@@ -145,7 +141,7 @@ export const shortsApi = {
       if (data && Array.isArray(data.content)) {
         const shuffled = [...data.content].sort(() => Math.random() - 0.5);
         return {
-          items: syncWithLocalBookmarks(shuffled),
+          items: await syncWithLocalBookmarks(shuffled),
           hasMore: visitedRandomPages.size < totalPages,
           totalElements: data.totalElements,
           page,
@@ -170,7 +166,7 @@ export const shortsApi = {
       const data = res.data;
       if (data && Array.isArray(data.content)) {
         return {
-          items: syncWithLocalBookmarks(data.content),
+          items: await syncWithLocalBookmarks(data.content),
           hasMore: !data.last,
           totalElements: data.totalElements,
           page: data.number ?? page,
@@ -222,8 +218,7 @@ export const shortsApi = {
     try {
       const res: any = await apiClient.get(`/shorts/${id}`);
       if (res.data && res.data.title) {
-        const synced = syncWithLocalBookmarks([res.data])[0];
-        return { ...res.data, bookmarked: synced.bookmarked };
+        return { ...res.data, bookmarked: getAccountId() ? res.data.bookmarked : false };
       }
       throw new Error('쇼츠 정보를 불러올 수 없습니다.');
     } catch (e) {
@@ -231,65 +226,40 @@ export const shortsApi = {
     }
   },
 
-  getBookmarks: async (page = 0, size = 20): Promise<ShortsItem[]> => {
-    try {
-      const res: any = await apiClient.get(`/shorts/bookmarks?page=${page}&size=${size}`);
-      const content = res.data?.content;
-      if (Array.isArray(content) && content.length > 0) {
-        return content.map((item: any) => ({ ...item, bookmarked: true }));
-      }
-    } catch {
-      // Backend may not have endpoint or user is offline
+  getAllBookmarks: async (): Promise<ShortsItem[]> => {
+    const account = getAccountId();
+    if (!account) return [];
+    const items: ShortsItem[] = [];
+    for (let page = 0; ; page++) {
+      const res: any = await apiClient.get(`/shorts/bookmarks?page=${page}&size=100`);
+      if (getAccountId() !== account) return [];
+      const data = res.data;
+      if (!Array.isArray(data?.content)) throw new Error('잘못된 북마크 응답입니다.');
+      items.push(...data.content.map((item: ShortsItem) => ({ ...item, bookmarked: true })));
+      if (data.last || data.content.length === 0) return items;
     }
-
-    // Fallback: LocalStorage Bookmarks
-    if (typeof window !== 'undefined') {
-      const localSaved = localStorage.getItem('honbab_local_bookmarks');
-      if (localSaved) {
-        try {
-          const list: ShortsItem[] = JSON.parse(localSaved);
-          if (Array.isArray(list)) {
-            return list;
-          }
-        } catch {}
-      }
-    }
-
-    return [];
   },
 
-  toggleBookmark: async (id: number, currentStatus: boolean, item?: ShortsItem): Promise<boolean> => {
+  getBookmarks: async (page = 0, size = 20): Promise<ShortsItem[]> => {
+    const account = getAccountId();
+    if (!account) return [];
+    const res: any = await apiClient.get(`/shorts/bookmarks?page=${page}&size=${size}`);
+    if (getAccountId() !== account) return [];
+    return (res.data?.content || []).map((item: ShortsItem) => ({ ...item, bookmarked: true }));
+  },
+
+  toggleBookmark: async (id: number, currentStatus: boolean, _item?: ShortsItem): Promise<boolean> => {
+    if (!requireLogin()) return false;
+    const account = getAccountId();
     try {
-      if (currentStatus) {
-        await apiClient.delete(`/shorts/${id}/bookmark`);
-      } else {
-        await apiClient.post(`/shorts/${id}/bookmark`);
-      }
+      if (currentStatus) await apiClient.delete(`/shorts/${id}/bookmark`);
+      else await apiClient.post(`/shorts/${id}/bookmark`);
+      if (getAccountId() !== account) return false;
+      window.dispatchEvent(new CustomEvent('bookmark-changed', { detail: { id, bookmarked: !currentStatus } }));
+      return !currentStatus;
     } catch {
-      // Proceed even if backend is offline
+      if (getAccountId() === account) window.alert('북마크를 저장하지 못했습니다. 다시 시도해 주세요.');
+      return currentStatus;
     }
-
-    // Sync to local bookmarks
-    if (typeof window !== 'undefined') {
-      try {
-        const localSaved = localStorage.getItem('honbab_local_bookmarks');
-        let currentList: ShortsItem[] = localSaved ? JSON.parse(localSaved) : [];
-        if (currentStatus) {
-          // Remove
-          currentList = currentList.filter((s) => s.id !== id);
-        } else {
-          // Add
-          if (item) {
-            if (!currentList.some((s) => s.id === id)) {
-              currentList.unshift({ ...item, bookmarked: true });
-            }
-          }
-        }
-        localStorage.setItem('honbab_local_bookmarks', JSON.stringify(currentList));
-        window.dispatchEvent(new CustomEvent('bookmark-changed', { detail: { id, bookmarked: !currentStatus } }));
-      } catch {}
-    }
-
-    return !currentStatus;
   }
 };

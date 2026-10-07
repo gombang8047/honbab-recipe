@@ -51,11 +51,13 @@ export default function BookmarksPage() {
   const loadBookmarks = async () => {
     setLoading(true);
     try {
-      const list = await shortsApi.getBookmarks();
+      const list = await shortsApi.getAllBookmarks();
       // Ensure all bookmarked items have bookmarked: true
       const normalized = list.map((item) => ({ ...item, bookmarked: true }));
       setBookmarks(normalized);
     } catch (e) {
+      setBookmarks([]);
+      window.alert('북마크를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.');
       console.error('북마크 로드 실패:', e);
     } finally {
       setLoading(false);
@@ -77,8 +79,8 @@ export default function BookmarksPage() {
   const handleRemoveBookmark = async (e: React.MouseEvent, item: ShortsItem) => {
     e.stopPropagation();
     soundService.playButtonClick();
-    await shortsApi.toggleBookmark(item.id, true, item);
-    setBookmarks((prev) => prev.filter((b) => b.id !== item.id));
+    const saved = await shortsApi.toggleBookmark(item.id, true, item);
+    if (!saved) setBookmarks((prev) => prev.filter((b) => b.id !== item.id));
   };
 
   const filtered = bookmarks.filter((item) => {

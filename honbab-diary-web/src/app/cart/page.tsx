@@ -24,13 +24,25 @@ import Link from 'next/link';
 export default function CartPage() {
   const [items, setItems] = useState<CartIngredient[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
   const [platformModalInfo, setPlatformModalInfo] = useState<PlatformSelectInfo | null>(null);
   const [kurlyPref, setKurlyPref] = useState<'app' | 'web' | null>(null);
 
-  const loadCart = () => {
-    const list = cartService.getItems();
-    setItems(list);
-    setLoading(false);
+  const loadCart = async () => {
+    try {
+      setItems(await cartService.refresh());
+      setError(null);
+    } catch {
+      setError('장바구니를 불러오지 못했습니다. 서버 연결을 확인하고 다시 시도해 주세요.');
+    } finally { setLoading(false); }
+  };
+  const runAction = async (action: () => Promise<CartIngredient[]>) => {
+    if (saving) return;
+    setSaving(true);
+    try { setItems(await action()); setError(null); }
+    catch { window.alert('장바구니 저장에 실패했습니다. 다시 시도해 주세요.'); }
+    finally { setSaving(false); }
   };
 
   const loadPreferences = () => {
@@ -49,7 +61,7 @@ export default function CartPage() {
     }).catch(() => {});
 
     const handleCartChanged = () => {
-      loadCart();
+      setItems(cartService.getItems());
     };
 
     window.addEventListener('cart-changed', handleCartChanged);
@@ -96,32 +108,27 @@ export default function CartPage() {
 
   const handleToggleAll = () => {
     soundService.playButtonClick();
-    const updated = cartService.toggleAll(!allChecked);
-    setItems(updated);
+    void runAction(() => cartService.toggleAll(!allChecked));
   };
 
   const handleToggleItem = (id: string) => {
     soundService.playButtonClick();
-    const updated = cartService.toggleChecked(id);
-    setItems(updated);
+    void runAction(() => cartService.toggleChecked(id));
   };
 
   const handleRemoveItem = (id: string) => {
     soundService.playButtonClick();
-    const updated = cartService.removeItem(id);
-    setItems(updated);
+    void runAction(() => cartService.removeItem(id));
   };
 
   const handleRemoveRecipeGroup = (recipeId: number | undefined, recipeTitle: string) => {
     soundService.playButtonClick();
-    const updated = cartService.removeRecipeGroup(recipeId, recipeTitle);
-    setItems(updated);
+    void runAction(() => cartService.removeRecipeGroup(recipeId, recipeTitle));
   };
 
   const handleClearCart = () => {
     soundService.playButtonClick();
-    cartService.clearCart();
-    setItems([]);
+    void runAction(() => cartService.clearCart());
   };
 
   const handlePlatformClick = (
@@ -166,6 +173,8 @@ export default function CartPage() {
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 pb-10 sm:pb-12 flex flex-col gap-6 sm:gap-8">
+      {error && <div role="alert" className="p-4 text-red-400">{error} <button onClick={() => void loadCart()}>다시 시도</button></div>}
+      {saving && <p role="status" className="text-sm text-amber-400">장바구니 저장 중...</p>}
       {/* Title Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#D4AF37]/20 pb-4 sm:pb-5">
         <div className="flex items-center gap-3">
@@ -266,11 +275,7 @@ export default function CartPage() {
 
               const handleToggleGroup = () => {
                 soundService.playButtonClick();
-                const updated = cartService.toggleRecipeGroupChecked(
-                  recipeTitle,
-                  !allGroupChecked
-                );
-                setItems(updated);
+                void runAction(() => cartService.toggleRecipeGroupChecked(recipeTitle, !allGroupChecked));
               };
 
                 return (

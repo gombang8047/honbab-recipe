@@ -1,7 +1,5 @@
-/**
- * 장바구니 로컬 스토리지 관리 및 실시간 동기화 서비스
- */
-
+import { getAccountId } from './authSession';
+import { apiClient } from './api';
 import { getIngredientPricing, isFreeBasicIngredient } from './ingredientPricing';
 
 export interface CartIngredient {
@@ -18,244 +16,158 @@ export interface CartIngredient {
   addedAt: number;
 }
 
-const CART_STORAGE_KEY = 'honbab_cart_ingredients';
 
-// 최초 1회 기본 샘플 데이터 (비어있을 때 친절한 사용자 경험 제공)
-const INITIAL_CART_SAMPLE: CartIngredient[] = [
-  {
-    id: '1_1_대파',
-    recipeId: 1,
-    recipeTitle: '🍳 5분컷 초간단 계란볶음밥',
-    name: '대파',
-    amount: '1/2',
-    unit: '대',
-    isEssential: true,
-    checked: true,
-    quantity: 1,
-    estimatedPrice: 1600,
-    addedAt: Date.now() - 10000
-  },
-  {
-    id: '1_2_계란',
-    recipeId: 1,
-    recipeTitle: '🍳 5분컷 초간단 계란볶음밥',
-    name: '계란',
-    amount: '2',
-    unit: '개',
-    isEssential: true,
-    checked: true,
-    quantity: 1,
-    estimatedPrice: 2800,
-    addedAt: Date.now() - 9000
-  },
-  {
-    id: '1_3_굴소스',
-    recipeId: 1,
-    recipeTitle: '🍳 5분컷 초간단 계란볶음밥',
-    name: '굴소스',
-    amount: '1',
-    unit: '큰술',
-    isEssential: false,
-    checked: true,
-    quantity: 1,
-    estimatedPrice: 3200,
-    addedAt: Date.now() - 8000
-  }
-];
+const BASE_KEY = 'honbab_cart_ingredients';
+const GUEST_KEY = BASE_KEY + ':guest';
+let owner: string | null = null;
+let items: CartIngredient[] = [];
+let pending: Promise<unknown> = Promise.resolve();
+const loads = new Map<string, Promise<CartIngredient[]>>();
 
-function notifyCartChange(count: number) {
-  if (typeof window !== 'undefined') {
-    window.dispatchEvent(new CustomEvent('cart-changed', { detail: { count } }));
-  }
+function notify() {
+  window.dispatchEvent(new CustomEvent('cart-changed', { detail: { count: cartService.getCartCount() } }));
 }
+function read(key: string): CartIngredient[] {
+  const raw = localStorage.getItem(key);
+  if (!raw) return [];
+  const parsed = JSON.parse(raw);
+  if (!Array.isArray(parsed)) throw new Error('저장된 장바구니 형식을 확인해 주세요.');
+  return parsed;
+}
+function current(): CartIngredient[] {
+  if (typeof window === 'undefined') return [];
+  const account = getAccountId();
+  if (!account) return read(GUEST_KEY);
+  if (owner !== account) { owner = account; items = []; }
+  return items;
+}
+function commit(account: string, next: CartIngredient[]): CartIngredient[] {
+  if (getAccountId() !== account) throw new Error('계정이 변경되었습니다.');
+  owner = account;
+  items = next;
+  notify();
+  return next;
+}
+async function importStored(account: string, key: string, guest: boolean) {
+  const marker = key + ':server-migrated-v2';
+  if (!guest && localStorage.getItem(marker)) return;
+  const stored = read(key);
+  if (!stored.length) return;
+  for (let offset = 0; offset < stored.length; offset += 100) {
+    if (getAccountId() !== account) throw new Error('계정이 변경되었습니다.');
+    const res: any = await apiClient.post('/cart/ingredients/import', stored.slice(offset, offset + 100));
+    commit(account, res.data);
+  }
+  // Preserve account-local backup; guest cart is consumed only after confirmed server success.
+  if (getAccountId() !== account) throw new Error('계정이 변경되었습니다.');
+  if (guest) localStorage.removeItem(key);
+  else localStorage.setItem(marker, 'true');
+}
+async function refresh(): Promise<CartIngredient[]> {
+  const account = getAccountId();
+  if (!account) return current();
+  const existing = loads.get(account);
+  if (existing) return existing;
+  const task = (async () => {
+    await importStored(account, BASE_KEY + ':user:' + account, false);
+    await importStored(account, GUEST_KEY, true);
+    if (getAccountId() !== account) throw new Error('계정이 변경되었습니다.');
+    const res: any = await apiClient.get('/cart/ingredients');
+    return commit(account, res.data);
+  })();
+  loads.set(account, task);
+  try { return await task; } finally { if (loads.get(account) === task) loads.delete(account); }
+}
+function change(
+  local: (list: CartIngredient[]) => CartIngredient[],
+  server: (list: CartIngredient[]) => Promise<any>,
+): Promise<CartIngredient[]> {
+  const account = getAccountId();
+  const run = async () => {
+    if (getAccountId() !== account) throw new Error('계정이 변경되었습니다.');
+    if (!account) {
+      const next = local(current());
+      localStorage.setItem(GUEST_KEY, JSON.stringify(next));
+      notify();
+      return next;
+    }
+    await refresh();
+    if (getAccountId() !== account) throw new Error('계정이 변경되었습니다.');
+    const res = await server(current());
+    return commit(account, res.data);
+  };
+  const task = pending.then(run, run);
+  pending = task.catch(() => {});
+  return task;
+}
+const check = (select: (item: CartIngredient) => boolean, checked: boolean) => change(
+  list => list.map(item => select(item) ? { ...item, checked } : item),
+  list => apiClient.post('/cart/ingredients/check', { ids: list.filter(select).map(item => item.id), checked }),
+);
+const remove = (select: (item: CartIngredient) => boolean) => change(
+  list => list.filter(item => !select(item)),
+  list => apiClient.post('/cart/ingredients/remove', { ids: list.filter(select).map(item => item.id) }),
+);
 
 export const cartService = {
-  /**
-   * 모든 장바구니 재료 조회
-   */
-  getItems: (): CartIngredient[] => {
-    if (typeof window === 'undefined') return [];
-    try {
-      const raw = localStorage.getItem(CART_STORAGE_KEY);
-      if (!raw) {
-        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(INITIAL_CART_SAMPLE));
-        return INITIAL_CART_SAMPLE;
-      }
-      const list: CartIngredient[] = JSON.parse(raw);
-      // 조리용 물 등 가정 내 기본 무료 재료는 구매 목록에서 기본적으로 '집에 있음'(체크 해제)으로 자동 보정
-      let modified = false;
-      const sanitized = list.map((item) => {
-        if (isFreeBasicIngredient(item.name) && item.checked) {
-          modified = true;
-          return { ...item, checked: false };
-        }
-        return item;
-      });
-      if (modified) {
-        localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(sanitized));
-      }
-      return sanitized;
-    } catch {
-      return [];
+  getLegacyItems: (): CartIngredient[] => read(BASE_KEY).filter(item =>
+    !localStorage.getItem('honbab_legacy_cart_claim:' + item.id)),
+  importLegacyItems: async (ids: string[]): Promise<void> => {
+    const account = getAccountId();
+    if (!account) throw new Error('로그인이 필요합니다.');
+    const selected = cartService.getLegacyItems().filter(item => ids.includes(item.id));
+    for (let offset = 0; offset < selected.length; offset += 100) {
+      if (getAccountId() !== account) throw new Error('계정이 변경되었습니다.');
+      const batch = selected.slice(offset, offset + 100);
+      const res: any = await apiClient.post('/cart/ingredients/import', batch);
+      commit(account, res.data);
+      batch.forEach(item => localStorage.setItem('honbab_legacy_cart_claim:' + item.id, account));
     }
   },
-
-  /**
-   * 장바구니에 담긴 재료 총 개수
-   */
-  getCartCount: (): number => {
-    const items = cartService.getItems();
-    return items.length;
-  },
-
-  /**
-   * 특정 레시피의 모든 재료를 장바구니에 추가
-   */
+  getItems: current,
+  getCartCount: () => current().length,
+  refresh,
+  mergeGuestCart: refresh,
   addFromRecipe: (recipe: {
-    id: number;
-    title: string;
+    id: number; title: string;
     ingredients: { ingredientId: number; name: string; amount: string; unit: string; isEssential?: boolean }[];
-  }): CartIngredient[] => {
-    const current = cartService.getItems();
-    const newItems: CartIngredient[] = [...current];
-
-    recipe.ingredients.forEach((ing) => {
-      const uniqueId = `${recipe.id}_${ing.ingredientId}_${ing.name}`;
-      const existingIndex = newItems.findIndex((item) => item.id === uniqueId || (item.recipeId === recipe.id && item.name === ing.name));
-      const isFree = isFreeBasicIngredient(ing.name);
-
-      if (existingIndex >= 0) {
-        // 이미 있으면 수량 1 증가
-        newItems[existingIndex].quantity += 1;
-        if (!isFree) {
-          newItems[existingIndex].checked = true;
-        }
-      } else {
-        const pricing = getIngredientPricing(ing.name, ing.amount, ing.unit);
-        newItems.push({
-          id: uniqueId,
-          recipeId: recipe.id,
-          recipeTitle: recipe.title,
-          name: ing.name,
-          amount: ing.amount,
-          unit: ing.unit,
-          isEssential: ing.isEssential ?? true,
-          checked: !isFree, // 조리수 등 기본 재료는 기본 '집에 있음' (체크 해제)
-          quantity: 1,
-          estimatedPrice: pricing.tiers.value.estimatedPrice,
-          addedAt: Date.now()
-        });
-      }
-    });
-
-    try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(newItems));
-    } catch {}
-
-    notifyCartChange(newItems.length);
-    return newItems;
+  }): Promise<CartIngredient[]> => {
+    const additions = recipe.ingredients.map(ing => ({
+      id: `${recipe.id}_${ing.ingredientId}_${ing.name}`,
+      recipeId: recipe.id, recipeTitle: recipe.title, name: ing.name, amount: ing.amount || '',
+      unit: ing.unit || '', isEssential: ing.isEssential ?? true,
+      checked: !isFreeBasicIngredient(ing.name), quantity: 1,
+      estimatedPrice: getIngredientPricing(ing.name, ing.amount, ing.unit).tiers.value.estimatedPrice,
+      addedAt: Date.now(),
+    }));
+    return change(list => {
+      const next = list.map(item => ({ ...item }));
+      additions.forEach(item => {
+        const existing = next.find(entry => entry.id === item.id || (entry.recipeId === item.recipeId && entry.name === item.name));
+        if (existing) { existing.quantity = Math.min(999, existing.quantity + 1); existing.checked = item.checked; }
+        else next.push(item);
+      });
+      return next;
+    }, () => apiClient.post('/cart/ingredients', additions));
   },
-
-  /**
-   * 개별 아이템 삭제
-   */
-  removeItem: (id: string): CartIngredient[] => {
-    const current = cartService.getItems();
-    const filtered = current.filter((i) => i.id !== id);
-    try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(filtered));
-    } catch {}
-    notifyCartChange(filtered.length);
-    return filtered;
-  },
-
-  /**
-   * 특정 레시피에 속한 재료 일괄 삭제
-   */
-  removeRecipeGroup: (recipeId?: number, recipeTitle?: string): CartIngredient[] => {
-    const current = cartService.getItems();
-    const filtered = current.filter((i) => {
-      if (typeof recipeId === 'number' && i.recipeId === recipeId) return false;
-      if (recipeTitle && i.recipeTitle === recipeTitle) return false;
-      return true;
-    });
-    try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(filtered));
-    } catch {}
-    notifyCartChange(filtered.length);
-    return filtered;
-  },
-
-  /**
-   * 구매 대상 체크/해제 (체크 해제 시 '집에 이미 있음')
-   */
-  toggleChecked: (id: string): CartIngredient[] => {
-    const current = cartService.getItems();
-    const updated = current.map((item) =>
-      item.id === id ? { ...item, checked: !item.checked } : item
-    );
-    try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(updated));
-    } catch {}
-    return updated;
-  },
-
-  /**
-   * 특정 레시피 그룹에 속한 재료들의 체크 일괄 토글
-   */
-  toggleRecipeGroupChecked: (recipeTitle: string, checked: boolean): CartIngredient[] => {
-    const current = cartService.getItems();
-    const updated = current.map((item) => {
-      const groupKey = item.recipeTitle || '일반 장바구니 재료';
-      if (groupKey === recipeTitle) {
-        return { ...item, checked };
-      }
-      return item;
-    });
-    try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(updated));
-    } catch {}
-    return updated;
-  },
-
-  /**
-   * 전체 선택 / 전체 해제
-   */
-  toggleAll: (checked: boolean): CartIngredient[] => {
-    const current = cartService.getItems();
-    const updated = current.map((item) => ({ ...item, checked }));
-    try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(updated));
-    } catch {}
-    return updated;
-  },
-
-
-  /**
-   * 수량 변경
-   */
-  updateQuantity: (id: string, delta: number): CartIngredient[] => {
-    const current = cartService.getItems();
-    const updated = current.map((item) => {
-      if (item.id === id) {
-        const newQty = Math.max(1, item.quantity + delta);
-        return { ...item, quantity: newQty };
-      }
-      return item;
-    });
-    try {
-      localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(updated));
-    } catch {}
-    return updated;
-  },
-
-  /**
-   * 장바구니 전체 비우기
-   */
-  clearCart: (): void => {
-    try {
-      localStorage.removeItem(CART_STORAGE_KEY);
-    } catch {}
-    notifyCartChange(0);
-  }
+  removeItem: (id: string) => remove(item => item.id === id),
+  removeRecipeGroup: (recipeId?: number, title?: string) => remove(item =>
+    typeof recipeId === 'number' ? item.recipeId === recipeId : item.recipeTitle === title),
+  toggleChecked: (id: string) => change(
+    list => list.map(item => item.id === id ? { ...item, checked: !item.checked } : item),
+    list => {
+      const item = list.find(item => item.id === id);
+      if (!item) throw new Error('장바구니 항목이 없습니다.');
+      return apiClient.patch('/cart/ingredients', { id, checked: !item.checked });
+    }),
+  toggleRecipeGroupChecked: (title: string, checked: boolean) => check(item => item.recipeTitle === title, checked),
+  toggleAll: (checked: boolean) => check(() => true, checked),
+  updateQuantity: (id: string, delta: number) => change(
+    list => list.map(item => item.id === id ? { ...item, quantity: Math.min(999, Math.max(1, item.quantity + delta)) } : item),
+    list => {
+      const item = list.find(item => item.id === id);
+      if (!item) throw new Error('장바구니 항목이 없습니다.');
+      return apiClient.patch('/cart/ingredients', { id, quantity: Math.min(999, Math.max(1, item.quantity + delta)) });
+    }),
+  clearCart: () => change(() => [], () => apiClient.delete('/cart/ingredients')),
 };
