@@ -19,9 +19,17 @@ import com.honbab.diary.infra.gemini.GeminiPromptBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionDefinition;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
 
 @Slf4j
 @Service
@@ -35,38 +43,74 @@ public class AiRecipeService {
     private final GeminiPromptBuilder geminiPromptBuilder;
     private final com.honbab.diary.infra.youtube.YoutubeApiClient youtubeApiClient;
     private final ObjectMapper objectMapper;
+    private final PlatformTransactionManager transactionManager;
+
+    // Single-flight is local to this application instance. Completed/failed entries are removed.
+    private final ConcurrentHashMap<Long, CompletableFuture<RecipeDetailResponse>> inFlight = new ConcurrentHashMap<>();
 
     /**
      * 쇼츠를 AI로 분석하여 1인분 레시피로 변환
-     * 1. DB 캐시 확인 (이미 변환된 레시피가 있으면 0초 즉시 반환)
+     * 1. 동일 쇼츠의 겹친 요청을 통합하고 짧은 트랜잭션에서 DB 캐시 확인
      * 2. 없으면 쇼츠 영상 URL과 제목, 설명란, 태그, 댓글 수집
      * 3. Google Gemini 멀티모달 분석으로 구조화된 레시피 JSON 생성
      * 4. 영상 분석 실패 시 텍스트 기반 분석으로 자동 전환
      * 5. PostgreSQL DB 영구 저장 후 반환
      */
-    @Transactional
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public RecipeDetailResponse convertShortsToRecipe(Long shortsId) {
-        // 1. DB 캐시 확인
-        if (recipeRepository.existsByShortsId(shortsId)) {
-            Recipe cached = recipeRepository.findByShortsId(shortsId).orElse(null);
-            if (cached != null) {
-                log.info("캐시된 AI 레시피 즉시 반환 (DB Hit): shortsId={}, recipeId={}", shortsId, cached.getId());
-                return RecipeDetailResponse.from(cached);
-            }
+        CompletableFuture<RecipeDetailResponse> result = new CompletableFuture<>();
+        CompletableFuture<RecipeDetailResponse> existing = inFlight.putIfAbsent(shortsId, result);
+        if (existing != null) {
+            log.info("진행 중인 AI 레시피 변환 결과 공유: shortsId={}", shortsId);
+            return awaitResult(existing);
         }
 
-        Shorts shorts = shortsService.findShortsById(shortsId);
-        log.info("Google Gemini 레시피 변환 시작: shortsId={}, title={}", shortsId, shorts.getTitle());
+        try {
+            RecipeDetailResponse response = generateAndSave(shortsId);
+            result.complete(response);
+            return response;
+        } catch (RuntimeException | Error e) {
+            result.completeExceptionally(e);
+            throw e;
+        } finally {
+            inFlight.remove(shortsId, result);
+        }
+    }
+
+    private RecipeDetailResponse awaitResult(CompletableFuture<RecipeDetailResponse> result) {
+        try {
+            return result.get();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException(ErrorCode.AI_CONVERSION_FAILED, "레시피 변환 결과 대기가 중단됐습니다.");
+        } catch (ExecutionException e) {
+            if (e.getCause() instanceof RuntimeException cause) throw cause;
+            if (e.getCause() instanceof Error cause) throw cause;
+            throw new BusinessException(ErrorCode.AI_CONVERSION_FAILED, "레시피 변환에 실패했습니다.");
+        }
+    }
+
+    private RecipeDetailResponse generateAndSave(Long shortsId) {
+        ConversionInput input = transaction(true).execute(status -> {
+            RecipeDetailResponse cached = findCached(shortsId);
+            if (cached != null) return new ConversionInput(null, null, null, cached);
+            Shorts shorts = shortsService.findShortsById(shortsId);
+            // Materialize scalar values before leaving the transaction; do not carry lazy entities.
+            return new ConversionInput(shorts.getYoutubeId(), shorts.getTitle(), shorts.getMetadata(), null);
+        });
+        Objects.requireNonNull(input);
+        if (input.cached() != null) return input.cached();
+        log.info("Google Gemini 레시피 변환 시작: shortsId={}, title={}", shortsId, input.title());
 
         try {
             // 2. 쇼츠 메타데이터에서 설명란 및 태그 추출
-            String title = shorts.getTitle();
+            String title = input.title();
             String description = null;
             Set<String> tags = new LinkedHashSet<>();
 
-            if (shorts.getMetadata() != null && !shorts.getMetadata().isBlank()) {
+            if (input.metadata() != null && !input.metadata().isBlank()) {
                 try {
-                    JsonNode metaNode = objectMapper.readTree(shorts.getMetadata());
+                    JsonNode metaNode = objectMapper.readTree(input.metadata());
                     JsonNode snippet = metaNode.path("snippet");
                     if (!snippet.isMissingNode()) {
                         description = snippet.path("description").asText(null);
@@ -83,12 +127,12 @@ public class AiRecipeService {
             }
 
             // 3. 관련도 상위 댓글 조회
-            String comments = youtubeApiClient.getTopComment(shorts.getYoutubeId());
+            String comments = youtubeApiClient.getTopComment(input.youtubeId());
 
             // 4. Gemini 영상+텍스트 분석 호출 (영상 분석 실패 시 클라이언트에서 텍스트 방식으로 폴백)
             String prompt = geminiPromptBuilder.buildRecipePrompt(title, description, comments, tags);
             long geminiStartedAt = System.nanoTime();
-            String geminiResponseJson = geminiApiClient.generateRecipeJson(prompt, shorts.getYoutubeId(), title);
+            String geminiResponseJson = geminiApiClient.generateRecipeJson(prompt, input.youtubeId(), title);
             long geminiElapsedMs = (System.nanoTime() - geminiStartedAt) / 1_000_000;
             log.info("Gemini 레시피 분석 완료: shortsId={}, elapsedMs={}", shortsId, geminiElapsedMs);
 
@@ -97,11 +141,7 @@ public class AiRecipeService {
                     geminiResponseJson, new TypeReference<>() {});
 
             // 5. 엔티티 생성 및 DB 저장
-            Recipe recipe = buildRecipeFromAiResponse(shorts, recipeData);
-            Recipe saved = recipeRepository.save(recipe);
-
-            log.info("Gemini 레시피 변환 및 DB 적재 완료: shortsId={}, recipeId={}", shortsId, saved.getId());
-            return RecipeDetailResponse.from(saved);
+            return saveResult(shortsId, recipeData);
 
         } catch (BusinessException be) {
             log.error("AI 레시피 변환 실패: shortsId={}, error={}", shortsId, be.getMessage());
@@ -112,6 +152,38 @@ public class AiRecipeService {
                     "AI 레시피 변환에 실패했습니다: " + e.getMessage());
         }
     }
+
+    private RecipeDetailResponse saveResult(Long shortsId, Map<String, Object> recipeData) {
+        try {
+            return transaction(false).execute(status -> {
+                // Another application instance may have saved a recipe during the external call.
+                RecipeDetailResponse cached = findCached(shortsId);
+                if (cached != null) return cached;
+                Shorts shorts = shortsService.findShortsById(shortsId);
+                Recipe saved = recipeRepository.saveAndFlush(buildRecipeFromAiResponse(shorts, recipeData));
+                log.info("Gemini 레시피 변환 및 DB 적재 완료: shortsId={}, recipeId={}", shortsId, saved.getId());
+                return RecipeDetailResponse.from(saved);
+            });
+        } catch (DataIntegrityViolationException e) {
+            // The failed transaction has rolled back. Read the unique-key winner in a new transaction.
+            RecipeDetailResponse cached = transaction(true).execute(status -> findCached(shortsId));
+            if (cached != null) return cached;
+            throw e;
+        }
+    }
+
+    private RecipeDetailResponse findCached(Long shortsId) {
+        return recipeRepository.findByShortsId(shortsId).map(RecipeDetailResponse::from).orElse(null);
+    }
+
+    private TransactionTemplate transaction(boolean readOnly) {
+        TransactionTemplate template = new TransactionTemplate(transactionManager);
+        template.setPropagationBehavior(TransactionDefinition.PROPAGATION_REQUIRES_NEW);
+        template.setReadOnly(readOnly);
+        return template;
+    }
+
+    private record ConversionInput(String youtubeId, String title, String metadata, RecipeDetailResponse cached) {}
 
     @SuppressWarnings("unchecked")
     private Recipe buildRecipeFromAiResponse(Shorts shorts, Map<String, Object> data) {
