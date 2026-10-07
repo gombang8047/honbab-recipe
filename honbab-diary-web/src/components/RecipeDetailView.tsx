@@ -200,9 +200,10 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
   useEffect(() => {
     // 레시피가 생성되어 shortsId와 id가 모두 있을 때, 이전에 쇼츠 번호로 작성된 일기들의 ID 자동 동기화
     if (recipe.shortsId && recipe.id) {
-      diaryService.syncRecipeIdForDiaries(recipe.shortsId, recipe.id);
+      diaryService.refresh().then(() => diaryService.syncRecipeIdForDiaries(recipe.shortsId, recipe.id)).catch(() => {});
     }
 
+    diaryService.refresh().catch(() => {});
     setDiaries(diaryService.getDiariesByRecipe(recipe.id, recipe.shortsId));
 
     const handleDiaryChanged = () => {
@@ -217,23 +218,19 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
     };
   }, [recipe.id, recipe.shortsId]);
 
-  const handleToggleLike = (diaryId: string) => {
+  const handleToggleLike = async (diaryId: string) => {
     soundService.playButtonClick();
-    diaryService.toggleLike(diaryId);
+    try { await diaryService.toggleLike(diaryId); }
+    catch { window.alert('좋아요 저장에 실패했습니다.'); return; }
     setDiaries(diaryService.getDiariesByRecipe(recipe.id, recipe.shortsId));
   };
 
   useEffect(() => {
-    // Check initial bookmark status from local storage
+    let active = true;
+    shortsApi.getDetail(targetShortsId).then(detail => {
+      if (active) setBookmarked(detail.bookmarked);
+    }).catch(() => { if (active) setBookmarked(false); });
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('honbab_local_bookmarks');
-      if (saved) {
-        try {
-          const list = JSON.parse(saved);
-          setBookmarked(list.some((s: any) => s.id === targetShortsId));
-        } catch { }
-      }
-
       const savedSound = localStorage.getItem('honbab_timer_sound') as TimerSoundType;
       if (savedSound) {
         setSoundType(savedSound);
@@ -247,6 +244,7 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
     };
     window.addEventListener('bookmark-changed', handleBookmarkChanged as EventListener);
     return () => {
+      active = false;
       window.removeEventListener('bookmark-changed', handleBookmarkChanged as EventListener);
     };
   }, [targetShortsId]);
@@ -277,19 +275,7 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
 
   const handleToggleBookmark = async () => {
     soundService.playButtonClick();
-    const newStatus = !bookmarked;
-    setBookmarked(newStatus);
-    await shortsApi.toggleBookmark(targetShortsId, bookmarked, {
-      id: targetShortsId,
-      youtubeId: recipe.shortsYoutubeId || `recipe_${recipe.id}`,
-      title: recipe.title,
-      channelName: '혼밥레시피',
-      thumbnailUrl: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?w=600&q=80',
-      durationSeconds: recipe.cookTimeMinutes * 60,
-      viewCount: 28000,
-      tags: ['1인분', '자취요리'],
-      bookmarked: true,
-    });
+    setBookmarked(await shortsApi.toggleBookmark(targetShortsId, bookmarked));
   };
 
   // 레시피 변경 시 모든 재료 체크 상태 동기화
@@ -309,16 +295,20 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
   // 현재 선택된(체크된) 재료 개수
   const selectedCount = recipe.ingredients.filter(ing => checkedIngredients[ing.ingredientId]).length;
 
-  const handleAddToCart = () => {
+  const [cartSaving, setCartSaving] = useState(false);
+  const handleAddToCart = async () => {
+    if (cartSaving) return;
     const selectedIngredients = recipe.ingredients.filter(ing => checkedIngredients[ing.ingredientId]);
     if (selectedIngredients.length === 0) return;
 
     soundService.playButtonClick();
-    cartService.addFromRecipe({
-      id: recipe.id,
-      title: recipe.title,
-      ingredients: selectedIngredients
-    });
+    setCartSaving(true);
+    try {
+      await cartService.addFromRecipe({ id: recipe.id, title: recipe.title, ingredients: selectedIngredients });
+    } catch {
+      window.alert('장바구니에 저장하지 못했습니다. 다시 시도해 주세요.');
+      return;
+    } finally { setCartSaving(false); }
     setAdded(true);
     onAddToCart(recipe.id);
     setTimeout(() => setAdded(false), 2000);
@@ -527,7 +517,7 @@ export const RecipeDetailView: React.FC<RecipeDetailViewProps> = ({ recipe, onAd
 
               <button
                 onClick={handleAddToCart}
-                disabled={selectedCount === 0}
+                disabled={cartSaving || selectedCount === 0}
                 className={`px-5 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 shadow-lg transition-all ${selectedCount === 0
                   ? 'bg-[#1B4731] text-[#D9D2BE]/60 cursor-not-allowed border border-[#D4AF37]/20'
                   : added

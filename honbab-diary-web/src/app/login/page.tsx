@@ -1,15 +1,13 @@
 'use client';
 
 import React, { useState } from 'react';
-import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ChefHat, Sparkles, ShoppingBag, ShieldCheck, ArrowRight, MessageCircle } from 'lucide-react';
-import { authApi } from '@/services/authApi';
 import { soundService } from '@/services/soundService';
 
 export default function LoginPage() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   // 카카오 OAuth 설정
   const KAKAO_CLIENT_ID = process.env.NEXT_PUBLIC_KAKAO_CLIENT_ID || '';
@@ -20,36 +18,14 @@ export default function LoginPage() {
   // 1. 실제 카카오 인가 코드 요청 (카카오 로그인 페이지로 이동)
   const handleRealKakaoLogin = () => {
     if (!KAKAO_CLIENT_ID) {
-      handleDevKakaoLogin();
+      setError('카카오 로그인 설정이 준비되지 않았습니다. 관리자에게 문의해 주세요.');
       return;
     }
-    const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code`;
-    window.location.href = kakaoAuthUrl;
-  };
-
-  // 2. 테스트용 원클릭 로그인 (카카오 설정 없이 100% 즉시 로그인)
-  const handleDevKakaoLogin = () => {
+    setError(null);
     setLoading(true);
     soundService.playButtonClick();
-    
-    try {
-      if (typeof window !== 'undefined') {
-        localStorage.setItem('accessToken', 'mock_kakao_token_' + Date.now());
-        localStorage.setItem('refreshToken', 'mock_kakao_refresh_token');
-        if (!localStorage.getItem('userNickname')) {
-          localStorage.setItem('userNickname', '자취 미식가');
-        }
-        // 전역 로그인 상태 동기화 이벤트 발생
-        window.dispatchEvent(new Event('auth-change'));
-        window.dispatchEvent(new CustomEvent('auth-change'));
-      }
-      // 홈 화면으로 즉시 전환
-      router.push('/');
-    } catch (err) {
-      console.error('테스트 로그인 실패:', err);
-    } finally {
-      setTimeout(() => setLoading(false), 500);
-    }
+    const kakaoAuthUrl = `https://kauth.kakao.com/oauth/authorize?client_id=${KAKAO_CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code`;
+    window.location.href = kakaoAuthUrl;
   };
 
   return (
@@ -87,20 +63,8 @@ export default function LoginPage() {
             <span>카카오 로그인</span>
           </button>
           
-          <p className="text-[11px] text-[#D9D2BE]/70 text-center leading-relaxed">
-            ※ 핫스팟/내부망 환경에서 카카오 에러 발생 시 아래 원클릭 버튼을 이용하세요.
-          </p>
+          {error && <p role="alert" className="text-xs text-red-400 text-center">{error}</p>}
         </div>
-
-        {/* Dev One-Click Login Button */}
-        <button
-          onClick={handleDevKakaoLogin}
-          disabled={loading}
-          className="w-full bg-[#0D2418] hover:bg-[#1B4731] border border-[#D4AF37]/50 text-[#D4AF37] font-bold py-3 px-4 rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-md active:scale-98"
-        >
-          <Sparkles size={14} className="text-[#D4AF37]" />
-          <span>{loading ? '로그인 처리 중...' : '🚀 테스트용 원클릭 로그인 (핫스팟 전용)'}</span>
-        </button>
 
         {/* Feature List */}
         <div className="border-t border-[#D4AF37]/20 pt-5 flex flex-col gap-3 text-xs text-[#D9D2BE]">

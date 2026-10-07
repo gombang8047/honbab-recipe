@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { getAccountId } from './authSession';
 
 const PROD_API_URL = 'https://port-0-honbab-recipe-mu0tt8j1c0c836b2.sel3.cloudtype.app';
 
@@ -38,9 +39,12 @@ export const apiClient = axios.create({
 // Request interceptor to attach JWT token & dynamic baseURL
 apiClient.interceptors.request.use((config) => {
   config.baseURL = getApiBaseUrl();
+  if (config.url?.startsWith('/cart/ingredients') || config.url?.startsWith('/diaries')) {
+    config.timeout = 15000;
+  }
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('accessToken');
-    if (token) {
+    if (token && getAccountId()) {
       config.headers.Authorization = `Bearer ${token}`;
     }
   }
@@ -51,6 +55,11 @@ apiClient.interceptors.request.use((config) => {
 apiClient.interceptors.response.use(
   (response) => response.data,
   (error) => {
+    if (typeof window !== 'undefined' && error.response?.status === 401 &&
+        error.config?.headers?.Authorization === `Bearer ${localStorage.getItem('accessToken')}`) {
+      ['accessToken', 'refreshToken', 'userNickname', 'userProfileImage'].forEach(key => localStorage.removeItem(key));
+      window.dispatchEvent(new Event('auth-change'));
+    }
     console.error('API Error:', error.response?.data || error.message);
     return Promise.reject(error.response?.data || error);
   }

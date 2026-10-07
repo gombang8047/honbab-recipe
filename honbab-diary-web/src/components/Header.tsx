@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { cartApi } from '@/services/cartApi';
 import { cartService } from '@/services/cartService';
+import { getAccountId } from '@/services/authSession';
 import { authApi } from '@/services/authApi';
 import { soundService } from '@/services/soundService';
 import { diaryService } from '@/services/diaryService';
@@ -82,8 +83,7 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
 
   const syncAuthState = useCallback(() => {
     if (typeof window === 'undefined') return;
-    const token = localStorage.getItem('accessToken');
-    const valid = !!token && token.trim() !== '';
+    const valid = !!getAccountId();
     setIsLoggedIn(valid);
 
     const storedName = localStorage.getItem('userNickname');
@@ -101,13 +101,19 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
   useEffect(() => {
     setMounted(true);
     // 당일 첫 접속 시 백그라운드에서 조용히 접속 경험치 부여 (알림 없이 자동 반영)
-    diaryService.checkAndAwardLoginXp();
+    diaryService.checkAndAwardLoginXp().catch(error => console.error('일기 동기화 실패:', error));
+    cartService.refresh().catch(error => console.error('장바구니 동기화 실패:', error));
     syncAuthState();
 
     const handleAuthChange = () => {
       syncAuthState();
     };
 
+    const refreshAccountData = () => {
+      diaryService.refresh().catch(error => console.error('일기 동기화 실패:', error));
+      cartService.refresh().catch(error => console.error('장바구니 동기화 실패:', error));
+    };
+    window.addEventListener('focus', refreshAccountData);
     window.addEventListener('auth-change', handleAuthChange);
     window.addEventListener('storage', handleAuthChange);
     window.addEventListener('diary-updated', handleAuthChange);
@@ -126,6 +132,7 @@ export const Header: React.FC<HeaderProps> = ({ cartCount: propCartCount }) => {
     window.addEventListener('cart-changed', handleCartChange);
 
     return () => {
+      window.removeEventListener('focus', refreshAccountData);
       window.removeEventListener('auth-change', handleAuthChange);
       window.removeEventListener('storage', handleAuthChange);
       window.removeEventListener('diary-updated', handleAuthChange);

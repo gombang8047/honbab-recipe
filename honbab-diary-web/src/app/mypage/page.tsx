@@ -1,4 +1,5 @@
 'use client';
+import { LegacyAccountImport } from '@/components/LegacyAccountImport';
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
@@ -57,7 +58,9 @@ export default function MyPage() {
   const [selectedDiary, setSelectedDiary] = useState<CookingDiaryEntry | null>(null);
   const [isLevelModalOpen, setIsLevelModalOpen] = useState<boolean>(false);
 
+  const [diaryError, setDiaryError] = useState<string | null>(null);
   const refreshDiaryData = () => {
+    setDiaryError(null);
     setUserLevelInfo(diaryService.getUserLevelInfo());
     setStreakDays(diaryService.getStreakDays());
     setMyDiaries(diaryService.getMyDiaries());
@@ -76,13 +79,13 @@ export default function MyPage() {
     setSettings(settingsService.getSettings());
 
     // Load bookmarks
-    shortsApi.getBookmarks().then((list) => {
+    shortsApi.getAllBookmarks().then((list) => {
       setRecentBookmarks(list.slice(0, 3));
       setBookmarkCount(list.length);
-    });
+    }).catch(() => { setRecentBookmarks([]); setBookmarkCount(0); });
 
-    // Load diary & level data
-    refreshDiaryData();
+    // Always load private data from the account database.
+    diaryService.refresh().then(refreshDiaryData).catch(() => setDiaryError('일기를 불러오지 못했습니다. 새로고침하여 다시 시도해 주세요.'));
 
     const handleDiaryChange = () => {
       refreshDiaryData();
@@ -154,20 +157,22 @@ export default function MyPage() {
   const avgCookCost = 5500;
   const totalSaved = mealsCooked * (avgDiningCost - avgCookCost);
 
-  const handleToggleLike = (e: React.MouseEvent, diaryId: string) => {
+  const handleToggleLike = async (e: React.MouseEvent, diaryId: string) => {
     e.stopPropagation();
     soundService.playHeartPop();
-    diaryService.toggleLike(diaryId);
+    try { await diaryService.toggleLike(diaryId); }
+    catch { window.alert('좋아요 저장에 실패했습니다.'); return; }
     if (selectedDiary && selectedDiary.id === diaryId) {
       setSelectedDiary(prev => prev ? { ...prev, isLiked: !prev.isLiked, likes: prev.isLiked ? prev.likes - 1 : prev.likes + 1 } : null);
     }
   };
 
-  const handleDeleteDiary = (e: React.MouseEvent, diaryId: string) => {
+  const handleDeleteDiary = async (e: React.MouseEvent, diaryId: string) => {
     e.stopPropagation();
     if (!window.confirm('정말 이 요리 일기를 삭제하시겠습니까?')) return;
     soundService.playButtonClick();
-    diaryService.deleteDiary(diaryId);
+    try { await diaryService.deleteDiary(diaryId); }
+    catch { window.alert('일기 삭제에 실패했습니다.'); return; }
     setMyDiaries(prev => prev.filter(d => d.id !== diaryId));
     if (selectedDiary && selectedDiary.id === diaryId) {
       setSelectedDiary(null);
@@ -185,6 +190,9 @@ export default function MyPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8 text-[#FDFBF4]">
+      {diaryError && <p role="alert" className="p-4 text-red-400">{diaryError}</p>}
+      <LegacyAccountImport />
+
       {/* 1. 프로필 요약 카드 */}
       <div className="p-6 sm:p-8 rounded-3xl border border-[#D4AF37]/40 bg-[#133624] shadow-2xl mb-8 relative overflow-hidden">
         {/* Background ambient glow */}

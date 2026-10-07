@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { X, Camera, Star, Sparkles, CheckCircle2, Flame, Award, AlertCircle, BookOpen, Search, Bookmark, Edit3, Loader2 } from 'lucide-react';
+import { requireLogin } from '@/services/authSession';
 import { diaryService, CookingDiaryEntry } from '@/services/diaryService';
 import { soundService } from '@/services/soundService';
 import { shortsApi, ShortsItem } from '@/services/shortsApi';
@@ -32,6 +33,9 @@ export const CookingDiaryModal: React.FC<CookingDiaryModalProps> = ({
   onClose,
   onSuccess
 }) => {
+  useEffect(() => {
+    if (isOpen && !requireLogin()) onClose();
+  }, [isOpen, onClose]);
   const [customTitle, setCustomTitle] = useState<string>(recipeTitle || '');
   const [linkedRecipeId, setLinkedRecipeId] = useState<number>(recipeId || 0);
   const [linkedShortsThumbnail, setLinkedShortsThumbnail] = useState<string>('');
@@ -59,16 +63,18 @@ export const CookingDiaryModal: React.FC<CookingDiaryModalProps> = ({
   } | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const submissionId = useRef<string | null>(null);
+  const submissionSignature = useRef('');
 
   // 모달 열릴 때 북마크 및 쇼츠 풀 로드
   useEffect(() => {
     if (isOpen) {
-      shortsApi.getBookmarks().then((bms) => {
+      shortsApi.getAllBookmarks().then((bms) => {
         setBookmarks(bms);
         if (bms.length === 0) {
           setSelectedTab('search');
         }
-      });
+      }).catch(() => { setBookmarks([]); setSelectedTab('search'); });
       // 검색 및 빠른 선택을 위한 쇼츠 풀 로드
       shortsApi.getTrendingPaginated(0, 30).then((data) => {
         if (data.items && data.items.length > 0) {
@@ -132,6 +138,7 @@ export const CookingDiaryModal: React.FC<CookingDiaryModalProps> = ({
 
   // 모달 닫을 때 상태 초기화
   const handleResetAndClose = () => {
+    submissionId.current = null;
     setPhotoUrl('');
     setRating(5);
     setComment('');
@@ -164,7 +171,7 @@ export const CookingDiaryModal: React.FC<CookingDiaryModalProps> = ({
   const isFormValid = photoUrl.trim().length > 0 && comment.trim().length >= 10;
 
   // 일기 등록 제출
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isFormValid || isSubmitting) return;
 
@@ -174,7 +181,12 @@ export const CookingDiaryModal: React.FC<CookingDiaryModalProps> = ({
     try {
       const finalRecipeId = linkedRecipeId || recipeId || 0;
       const finalTitle = customTitle.trim() || recipeTitle || '오늘의 집밥 요리';
-      const res = diaryService.addDiaryEntry({
+      const signature = JSON.stringify([finalRecipeId, finalTitle, photoUrl, rating, comment, privateDiary]);
+      if (submissionSignature.current !== signature) submissionId.current = null;
+      submissionSignature.current = signature;
+      submissionId.current ??= 'diary_' + crypto.randomUUID();
+      const res = await diaryService.addDiaryEntry({
+        id: submissionId.current,
         recipeId: finalRecipeId,
         recipeTitle: finalTitle,
         photoUrl,
@@ -183,6 +195,7 @@ export const CookingDiaryModal: React.FC<CookingDiaryModalProps> = ({
         privateDiary
       });
 
+      submissionId.current = null;
       soundService.playPaymentSuccess();
       setResultData({
         earnedXp: res.earnedXp,
@@ -197,6 +210,7 @@ export const CookingDiaryModal: React.FC<CookingDiaryModalProps> = ({
       }
     } catch (err) {
       console.error('일기 등록 실패:', err);
+      window.alert('일기 저장에 실패했습니다. 서버 연결 또는 사진 크기를 확인해 주세요.');
     } finally {
       setIsSubmitting(false);
     }
