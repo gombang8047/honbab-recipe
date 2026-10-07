@@ -1,0 +1,110 @@
+[
+  {
+    "youtubeId": "EsISn2Ey7LY",
+    "title": "5분만에? 실패없이 쉽고 맛있는 콩나물밥이.",
+    "durationSeconds": 16,
+    "description": "재료: 콩나물 두 줌, 밥 1공기, 물 50ml. 양념: 간장 3스푼, 고춧가루 0.5스푼, 다진 마늘 조금, 다진 파 1스푼, 참기름 1스푼, 통깨 1스푼. 만드는 법: 냄비에 콩나물을 깔고 물과 밥을 올린다. 뚜껑을 덮고 중약불에서 5분 끓인다. 양념장을 만들어 완성된 콩나물밥에 비빈다.",
+    "ingredients": [
+      {"name":"콩나물","aliases":["콩나물"],"amount":"2","unit":"줌"},
+      {"name":"밥","aliases":["밥"],"amount":"1","unit":"공기"},
+      {"name":"물","aliases":["물","생수"],"amount":"50","unit":"ml"},
+      {"name":"간장","aliases":["간장","진간장","양조간장"],"amount":"3","unit":"스푼"},
+      {"name":"고춧가루","aliases":["고춧가루"],"amount":"0.5","unit":"스푼"},
+      {"name":"대파","aliases":["대파","다진파","파"],"amount":"1","unit":"스푼"},
+      {"name":"참기름","aliases":["참기름"],"amount":"1","unit":"스푼"},
+      {"name":"통깨","aliases":["통깨","깨"],"amount":"1","unit":"스푼"}
+    ],
+    "steps": [
+      {"keywords":["콩나물","깔"],"timerSeconds":null},
+      {"keywords":["물","밥"],"timerSeconds":null},
+      {"keywords":["끓"],"timerSeconds":300},
+      {"keywords":["양념"],"timerSeconds":null}
+    ]
+  },
+  {
+    "youtubeId": "cwDHoWTlcD0",
+    "title": "전자레인지 3분 컷 맛도리 간장계란밥",
+    "durationSeconds": 40,
+    "description": "1인분 재료: 밥 1공기, 계란 2개, 진간장, 참기름, 쪽파 또는 대파. 진간장 2스푼, 생수 1스푼, 참기름 1/4스푼을 섞고 계란 2알을 올린다. 전자레인지에 30초, 30초, 40초씩 끊어서 총 1분 30초 돌린 뒤 밥 위에 얹고 파를 올린다.",
+    "ingredients": [
+      {"name":"밥","aliases":["밥"],"amount":"1","unit":"공기"},
+      {"name":"계란","aliases":["계란","달걀"],"amount":"2","unit":"개"},
+      {"name":"진간장","aliases":["진간장","간장"],"amount":"2","unit":"스푼"},
+      {"name":"물","aliases":["물","생수"],"amount":"1","unit":"스푼"},
+      {"name":"참기름","aliases":["참기름"],"amount":"0.25","unit":"스푼"},
+      {"name":"대파","aliases":["대파","쪽파","파"],"amount":null,"unit":null}
+    ],
+    "steps": [
+      {"keywords":["간장","참기름","섞"],"timerSeconds":null},
+      {"keywords":["계란","올"],"timerSeconds":null},
+      {"keywords":["전자레인지"],"timerSeconds":100},
+      {"keywords":["밥","파"],"timerSeconds":null}
+    ]
+  },
+  {
+    "youtubeId": "vaAobp_Q4Vo",
+    "title": "쉽고 맛있는 대패삼겹 제육볶음",
+    "durationSeconds": 21,
+    "description": "재료: 대패삼겹살 500g, 맛술 2스푼, 고추장 1스푼, 진간장 3스푼, 고춧가루 2스푼, 설탕 0.5스푼, 물엿 1스푼, 다진 마늘 1스푼, 양파 1/2개. 양파를 채 썬다. 대패삼겹살을 볶다가 반쯤 익으면 불을 끄고 양념과 양파를 넣은 뒤 다시 불을 켜 충분히 볶는다.",
+    "ingredients": [
+      {"name":"대패삼겹살","aliases":["대패삼겹살","대패삼겹","삼겹살"],"amount":null,"unit":null},
+      {"name":"맛술","aliases":["맛술","미림"],"amount":null,"unit":null},
+      {"name":"고추장","aliases":["고추장"],"amount":null,"unit":null},
+      {"name":"진간장","aliases":["진간장","양조간장","간장"],"amount":null,"unit":null},
+      {"name":"고춧가루","aliases":["고춧가루"],"amount":null,"unit":null},
+      {"name":"설탕","aliases":["설탕"],"amount":null,"unit":null},
+      {"name":"물엿","aliases":["물엿","올리고당"],"amount":null,"unit":null},
+      {"name":"다진마늘","aliases":["다진마늘","마늘"],"amount":null,"unit":null},
+      {"name":"양파","aliases":["양파"],"amount":null,"unit":null}
+    ],
+    "steps": [
+      {"keywords":["양파","채"],"timerSeconds":null},
+      {"keywords":["대패","볶"],"timerSeconds":null},
+      {"keywords":["불","끄","양념"],"timerSeconds":null},
+      {"keywords":["다시","볶"],"timerSeconds":null}
+    ]
+  },
+  {
+    "youtubeId": "echYtDYfuyM",
+    "title": "자취요리 고추장찌개",
+    "durationSeconds": 23,
+    "description": "1인분 재료: 대패삼겹 150g, 대파 1/2개, 애호박 1/3개, 설탕 1스푼, 고추장 1스푼, 진간장 1스푼, 물 400ml, 고춧가루 1스푼, 다시다 0.5스푼, 다진마늘 2스푼, 후추. 대파로 파기름을 만들고 대패삼겹이 80% 익으면 설탕과 고추장을 넣어 볶는다. 물을 넣고 끓으면 애호박과 마늘을 넣는다. 3분 끓인 뒤 후추로 마무리한다.",
+    "ingredients": [
+      {"name":"대패삼겹살","aliases":["대패삼겹살","대패삼겹"],"amount":"150","unit":"g"},
+      {"name":"대파","aliases":["대파","파"],"amount":"0.5","unit":"개"},
+      {"name":"애호박","aliases":["애호박","호박"],"amount":"0.333","unit":"개"},
+      {"name":"설탕","aliases":["설탕"],"amount":"1","unit":"스푼"},
+      {"name":"고추장","aliases":["고추장"],"amount":"1","unit":"스푼"},
+      {"name":"진간장","aliases":["진간장","간장"],"amount":"1","unit":"스푼"},
+      {"name":"물","aliases":["물"],"amount":"400","unit":"ml"},
+      {"name":"고춧가루","aliases":["고춧가루"],"amount":"1","unit":"스푼"},
+      {"name":"다시다","aliases":["다시다","조미료"],"amount":"0.5","unit":"스푼"},
+      {"name":"다진마늘","aliases":["다진마늘","마늘"],"amount":"2","unit":"스푼"}
+    ],
+    "steps": [
+      {"keywords":["대파","기름"],"timerSeconds":null},
+      {"keywords":["대패","고추장","볶"],"timerSeconds":null},
+      {"keywords":["물","애호박","마늘"],"timerSeconds":null},
+      {"keywords":["애호박","마늘","끓"],"timerSeconds":180}
+    ]
+  },
+  {
+    "youtubeId": "-GpnQaucbPo",
+    "title": "전자레인지 5분 푸딩 계란찜 레시피",
+    "durationSeconds": 30,
+    "description": "재료: 계란 4개, 쪽파 조금, 맛소금 2/3작은술, 참기름 1작은술, 뜨거운 물 500ml. 계란에 맛소금과 참기름을 넣어 섞고 뜨거운 물을 부어 섞은 뒤 거품을 걷는다. 뚜껑이나 랩을 씌우고 구멍을 뚫어 전자레인지에 4~5분 돌린다. 900W 기준 4분 30초.",
+    "ingredients": [
+      {"name":"계란","aliases":["계란","달걀"],"amount":"4","unit":"개"},
+      {"name":"쪽파","aliases":["쪽파","대파","파"],"amount":null,"unit":null},
+      {"name":"맛소금","aliases":["맛소금","소금"],"amount":"0.667","unit":"작은술"},
+      {"name":"참기름","aliases":["참기름"],"amount":"1","unit":"작은술"},
+      {"name":"물","aliases":["물","뜨거운물"],"amount":"500","unit":"ml"}
+    ],
+    "steps": [
+      {"keywords":["계란","소금","참기름","섞"],"timerSeconds":null},
+      {"keywords":["뜨거운","물","거품"],"timerSeconds":null},
+      {"keywords":["랩","구멍"],"timerSeconds":null},
+      {"keywords":["전자레인지"],"timerSeconds":270}
+    ]
+  }
+]

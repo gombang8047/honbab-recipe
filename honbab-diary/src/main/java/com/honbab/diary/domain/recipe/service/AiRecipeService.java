@@ -39,9 +39,10 @@ public class AiRecipeService {
     /**
      * 쇼츠를 AI로 분석하여 1인분 레시피로 변환
      * 1. DB 캐시 확인 (이미 변환된 레시피가 있으면 0초 즉시 반환)
-     * 2. 없으면 쇼츠 제목, 설명란, 댓글, 영상 직접 분석
-     * 3. Google Gemini 3.5 Flash 멀티모달로 정밀 레시피 JSON 생성
-     * 4. PostgreSQL DB 영구 저장 후 반환
+     * 2. 없으면 쇼츠 영상 URL과 제목, 설명란, 태그, 댓글 수집
+     * 3. Google Gemini 멀티모달 분석으로 구조화된 레시피 JSON 생성
+     * 4. 영상 분석 실패 시 텍스트 기반 분석으로 자동 전환
+     * 5. PostgreSQL DB 영구 저장 후 반환
      */
     @Transactional
     public RecipeDetailResponse convertShortsToRecipe(Long shortsId) {
@@ -55,7 +56,7 @@ public class AiRecipeService {
         }
 
         Shorts shorts = shortsService.findShortsById(shortsId);
-        log.info("Google Gemini 멀티모달 레시피 변환 시작: shortsId={}, title={}", shortsId, shorts.getTitle());
+        log.info("Google Gemini 레시피 변환 시작: shortsId={}, title={}", shortsId, shorts.getTitle());
 
         try {
             // 2. 쇼츠 메타데이터에서 설명란 및 태그 추출
@@ -81,12 +82,15 @@ public class AiRecipeService {
                 }
             }
 
-            // 3. 고정 댓글/인기 댓글 조회
+            // 3. 관련도 상위 댓글 조회
             String comments = youtubeApiClient.getTopComment(shorts.getYoutubeId());
 
-            // 4. Gemini 프롬프트 생성 및 멀티모달(비디오+텍스트) 호출
+            // 4. Gemini 영상+텍스트 분석 호출 (영상 분석 실패 시 클라이언트에서 텍스트 방식으로 폴백)
             String prompt = geminiPromptBuilder.buildRecipePrompt(title, description, comments, tags);
+            long geminiStartedAt = System.nanoTime();
             String geminiResponseJson = geminiApiClient.generateRecipeJson(prompt, shorts.getYoutubeId(), title);
+            long geminiElapsedMs = (System.nanoTime() - geminiStartedAt) / 1_000_000;
+            log.info("Gemini 레시피 분석 완료: shortsId={}, elapsedMs={}", shortsId, geminiElapsedMs);
 
             // 4. JSON 파싱
             Map<String, Object> recipeData = objectMapper.readValue(
@@ -96,7 +100,7 @@ public class AiRecipeService {
             Recipe recipe = buildRecipeFromAiResponse(shorts, recipeData);
             Recipe saved = recipeRepository.save(recipe);
 
-            log.info("Gemini 1.5 Flash 레시피 변환 및 DB 적재 완료: shortsId={}, recipeId={}", shortsId, saved.getId());
+            log.info("Gemini 레시피 변환 및 DB 적재 완료: shortsId={}, recipeId={}", shortsId, saved.getId());
             return RecipeDetailResponse.from(saved);
 
         } catch (BusinessException be) {

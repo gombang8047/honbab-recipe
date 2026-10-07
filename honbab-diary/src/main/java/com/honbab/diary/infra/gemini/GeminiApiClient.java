@@ -17,6 +17,7 @@ import org.springframework.web.client.RestTemplate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
 
 @Slf4j
 @Component
@@ -37,65 +38,155 @@ public class GeminiApiClient {
 
     private static final String GEMINI_URL_TEMPLATE =
             "https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s";
+    private static final String YOUTUBE_WATCH_URL_TEMPLATE =
+            "https://www.youtube.com/watch?v=%s";
+    private static final Pattern YOUTUBE_ID_PATTERN = Pattern.compile("^[A-Za-z0-9_-]{11}$");
 
     /**
-     * Gemini AI로 유튜브 쇼츠 설명/댓글/자막 텍스트를 분석하여 정밀한 레시피 JSON 생성
-     * (429 쿼터 초과 방지를 위한 스마트 멀티 모델 자동 폴백 지원)
+     * Gemini AI로 공개 유튜브 영상과 제목/설명/태그/댓글을 함께 분석하여 레시피 JSON 생성.
+     * 영상 분석이 지원되지 않거나 실패하면 기존 텍스트 분석으로 자동 전환한다.
      */
     public String generateRecipeJson(String prompt, String youtubeId, String fallbackTitle) {
-        if (apiKey == null || apiKey.isBlank() || "MOCK_KEY".equalsIgnoreCase(apiKey)) {
-            log.error("Gemini API Key 미설정: AI 레시피 변환 불가");
-            throw new BusinessException(ErrorCode.AI_CONVERSION_FAILED, "Gemini API 키가 설정되지 않았습니다.");
-        }
+        validateApiKey();
 
         Exception lastException = null;
+        String youtubeUrl = buildYoutubeUrl(youtubeId);
+
+        if (youtubeUrl != null) {
+            for (String modelName : CANDIDATE_MODELS) {
+                try {
+                    return requestRecipe(modelName, prompt, youtubeUrl, youtubeId, fallbackTitle);
+                } catch (Exception e) {
+                    lastException = e;
+                    log.warn("Gemini 영상 분석 실패, 다음 모델 시도: model={}, youtubeId={}, error={}",
+                            modelName, youtubeId, e.getMessage());
+                }
+            }
+
+            log.warn("모든 Gemini 영상 분석 호출 실패. 텍스트 기반 분석으로 전환합니다. youtubeId={}", youtubeId);
+        } else {
+            log.warn("유효한 YouTube ID가 없어 텍스트 기반 분석으로 진행합니다. youtubeId={}", youtubeId);
+        }
 
         for (String modelName : CANDIDATE_MODELS) {
             try {
-                String url = String.format(GEMINI_URL_TEMPLATE, modelName, apiKey);
-
-                HttpHeaders headers = new HttpHeaders();
-                headers.setContentType(MediaType.APPLICATION_JSON);
-
-                // 텍스트 프롬프트 파트 (유튜브 제목, 설명란, 고정 댓글, 태그가 완벽히 포함됨)
-                Map<String, Object> requestBody = Map.of(
-                        "contents", List.of(
-                                Map.of("parts", List.of(Map.of("text", prompt)))
-                        ),
-                        "generationConfig", Map.of(
-                                "responseMimeType", "application/json",
-                                "temperature", 0.2
-                        )
-                );
-
-                HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
-
-                log.info("Gemini ({}) 레시피 분석 API 호출 시작... (youtubeId={}, title={})", modelName, youtubeId, fallbackTitle);
-                ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-
-                if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
-                    JsonNode rootNode = objectMapper.readTree(response.getBody());
-                    JsonNode candidates = rootNode.path("candidates");
-                    if (candidates.isArray() && !candidates.isEmpty()) {
-                        JsonNode textNode = candidates.get(0)
-                                .path("content")
-                                .path("parts")
-                                .get(0)
-                                .path("text");
-                        if (!textNode.isMissingNode() && !textNode.asText().isBlank()) {
-                            log.info("Gemini ({}) AI 레시피 추출 성공!", modelName);
-                            return cleanJsonText(textNode.asText());
-                        }
-                    }
-                }
+                return requestRecipe(modelName, prompt, null, youtubeId, fallbackTitle);
             } catch (Exception e) {
                 lastException = e;
-                log.warn("Gemini 모델 ({}) 호출 실패 (쿼터/에러로 인한 다음 모델 폴백 시도): {}", modelName, e.getMessage());
+                log.warn("Gemini 텍스트 분석 실패, 다음 모델 시도: model={}, youtubeId={}, error={}",
+                        modelName, youtubeId, e.getMessage());
             }
         }
 
         log.error("모든 Gemini 모델 호출 실패: {}", lastException != null ? lastException.getMessage() : "응답 없음");
         throw new BusinessException(ErrorCode.AI_CONVERSION_FAILED, "Gemini AI 레시피 변환에 실패했습니다: " + (lastException != null ? lastException.getMessage() : "쿼터 초과"));
+    }
+
+    /**
+     * 동일 입력을 VIDEO/TEXT 모드로 분리해 비교하기 위한 평가 전용 진입점.
+     * 운영 변환처럼 다른 입력 모드로 폴백하지 않으므로 두 방식의 성공률과 시간을 독립적으로 측정한다.
+     */
+    String generateRecipeJsonForEvaluation(
+            String prompt,
+            String youtubeId,
+            String fallbackTitle,
+            boolean includeVideo
+    ) {
+        validateApiKey();
+        String youtubeUrl = includeVideo ? buildYoutubeUrl(youtubeId) : null;
+        if (includeVideo && youtubeUrl == null) {
+            throw new IllegalArgumentException("영상 평가에 사용할 수 없는 YouTube ID입니다: " + youtubeId);
+        }
+
+        Exception lastException = null;
+        for (String modelName : CANDIDATE_MODELS) {
+            try {
+                return requestRecipe(modelName, prompt, youtubeUrl, youtubeId, fallbackTitle);
+            } catch (Exception e) {
+                lastException = e;
+                log.warn("Gemini 평가 호출 실패, 다음 모델 시도: mode={}, model={}, youtubeId={}, error={}",
+                        includeVideo ? "VIDEO" : "TEXT", modelName, youtubeId, e.getMessage());
+            }
+        }
+
+        throw new BusinessException(
+                ErrorCode.AI_CONVERSION_FAILED,
+                "Gemini 평가 호출에 실패했습니다: "
+                        + (lastException != null ? lastException.getMessage() : "응답 없음")
+        );
+    }
+
+    private void validateApiKey() {
+        if (apiKey == null || apiKey.isBlank() || "MOCK_KEY".equalsIgnoreCase(apiKey)) {
+            log.error("Gemini API Key 미설정: AI 레시피 변환 불가");
+            throw new BusinessException(ErrorCode.AI_CONVERSION_FAILED, "Gemini API 키가 설정되지 않았습니다.");
+        }
+    }
+
+    private String requestRecipe(
+            String modelName,
+            String prompt,
+            String youtubeUrl,
+            String youtubeId,
+            String fallbackTitle
+    ) throws Exception {
+        String url = String.format(GEMINI_URL_TEMPLATE, modelName, apiKey);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_JSON);
+
+        List<Map<String, Object>> parts = new ArrayList<>();
+        if (youtubeUrl != null) {
+            parts.add(Map.of("file_data", Map.of("file_uri", youtubeUrl)));
+        }
+        parts.add(Map.of("text", prompt));
+
+        Map<String, Object> requestBody = Map.of(
+                "contents", List.of(Map.of("parts", parts)),
+                "generationConfig", Map.of(
+                        "responseMimeType", "application/json",
+                        "temperature", 0.2
+                )
+        );
+
+        String analysisMode = youtubeUrl == null ? "TEXT" : "VIDEO";
+        log.info("Gemini ({}) 레시피 분석 API 호출 시작: mode={}, youtubeId={}, title={}",
+                modelName, analysisMode, youtubeId, fallbackTitle);
+
+        HttpEntity<Map<String, Object>> entity = new HttpEntity<>(requestBody, headers);
+        ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
+        String result = extractResponseText(response);
+
+        log.info("Gemini ({}) AI 레시피 추출 성공: mode={}, youtubeId={}", modelName, analysisMode, youtubeId);
+        return result;
+    }
+
+    private String extractResponseText(ResponseEntity<String> response) throws Exception {
+        if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+            throw new IllegalStateException("Gemini API가 정상 응답을 반환하지 않았습니다.");
+        }
+
+        JsonNode candidates = objectMapper.readTree(response.getBody()).path("candidates");
+        if (!candidates.isArray() || candidates.isEmpty()) {
+            throw new IllegalStateException("Gemini API 응답에 candidate가 없습니다.");
+        }
+
+        JsonNode textNode = candidates.get(0)
+                .path("content")
+                .path("parts")
+                .get(0)
+                .path("text");
+        if (textNode.isMissingNode() || textNode.asText().isBlank()) {
+            throw new IllegalStateException("Gemini API 응답 본문이 비어 있습니다.");
+        }
+        return cleanJsonText(textNode.asText());
+    }
+
+    private String buildYoutubeUrl(String youtubeId) {
+        if (youtubeId == null || !YOUTUBE_ID_PATTERN.matcher(youtubeId).matches()) {
+            return null;
+        }
+        return String.format(YOUTUBE_WATCH_URL_TEMPLATE, youtubeId);
     }
 
     private String cleanJsonText(String raw) {
