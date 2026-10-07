@@ -4,6 +4,8 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.honbab.diary.domain.recipe.dto.RecipeDetailResponse;
+import com.honbab.diary.domain.recipe.dto.RecipeConversionProgressResponse;
+import com.honbab.diary.domain.recipe.dto.RecipeConversionProgressResponse.Stage;
 import com.honbab.diary.domain.recipe.entity.Ingredient;
 import com.honbab.diary.domain.recipe.entity.Recipe;
 import com.honbab.diary.domain.recipe.entity.RecipeIngredient;
@@ -46,7 +48,19 @@ public class AiRecipeService {
     private final PlatformTransactionManager transactionManager;
 
     // Single-flight is local to this application instance. Completed/failed entries are removed.
-    private final ConcurrentHashMap<Long, CompletableFuture<RecipeDetailResponse>> inFlight = new ConcurrentHashMap<>();
+    private final ConcurrentHashMap<Long, ConversionJob> inFlight = new ConcurrentHashMap<>();
+
+    private static final class ConversionJob {
+        private final CompletableFuture<RecipeDetailResponse> result = new CompletableFuture<>();
+        private final long startedAt = System.nanoTime();
+        private volatile Stage stage = Stage.PREPARING;
+    }
+
+    public RecipeConversionProgressResponse getConversionProgress(Long shortsId) {
+        ConversionJob job = inFlight.get(shortsId);
+        if (job == null) return new RecipeConversionProgressResponse(Stage.IDLE, 0);
+        return new RecipeConversionProgressResponse(job.stage, (System.nanoTime() - job.startedAt) / 1_000_000);
+    }
 
     /**
      * 쇼츠를 AI로 분석하여 1인분 레시피로 변환
@@ -58,22 +72,22 @@ public class AiRecipeService {
      */
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public RecipeDetailResponse convertShortsToRecipe(Long shortsId) {
-        CompletableFuture<RecipeDetailResponse> result = new CompletableFuture<>();
-        CompletableFuture<RecipeDetailResponse> existing = inFlight.putIfAbsent(shortsId, result);
+        ConversionJob job = new ConversionJob();
+        ConversionJob existing = inFlight.putIfAbsent(shortsId, job);
         if (existing != null) {
             log.info("진행 중인 AI 레시피 변환 결과 공유: shortsId={}", shortsId);
-            return awaitResult(existing);
+            return awaitResult(existing.result);
         }
 
         try {
-            RecipeDetailResponse response = generateAndSave(shortsId);
-            result.complete(response);
+            RecipeDetailResponse response = generateAndSave(shortsId, job);
+            job.result.complete(response);
             return response;
         } catch (RuntimeException | Error e) {
-            result.completeExceptionally(e);
+            job.result.completeExceptionally(e);
             throw e;
         } finally {
-            inFlight.remove(shortsId, result);
+            inFlight.remove(shortsId, job);
         }
     }
 
@@ -90,7 +104,7 @@ public class AiRecipeService {
         }
     }
 
-    private RecipeDetailResponse generateAndSave(Long shortsId) {
+    private RecipeDetailResponse generateAndSave(Long shortsId, ConversionJob job) {
         ConversionInput input = transaction(true).execute(status -> {
             RecipeDetailResponse cached = findCached(shortsId);
             if (cached != null) return new ConversionInput(null, null, null, cached);
@@ -127,16 +141,19 @@ public class AiRecipeService {
             }
 
             // 3. 관련도 상위 댓글 조회
+            job.stage = Stage.COMMENTS;
             String comments = youtubeApiClient.getTopComment(input.youtubeId());
 
             // 4. Gemini 영상+텍스트 분석 호출 (영상 분석 실패 시 클라이언트에서 텍스트 방식으로 폴백)
             String prompt = geminiPromptBuilder.buildRecipePrompt(title, description, comments, tags);
+            job.stage = Stage.ANALYZING;
             long geminiStartedAt = System.nanoTime();
             String geminiResponseJson = geminiApiClient.generateRecipeJson(prompt, input.youtubeId(), title);
             long geminiElapsedMs = (System.nanoTime() - geminiStartedAt) / 1_000_000;
             log.info("Gemini 레시피 분석 완료: shortsId={}, elapsedMs={}", shortsId, geminiElapsedMs);
 
             // 4. JSON 파싱
+            job.stage = Stage.SAVING;
             Map<String, Object> recipeData = objectMapper.readValue(
                     geminiResponseJson, new TypeReference<>() {});
 

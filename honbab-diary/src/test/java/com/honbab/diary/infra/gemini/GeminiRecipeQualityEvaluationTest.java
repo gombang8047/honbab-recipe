@@ -93,14 +93,14 @@ class GeminiRecipeQualityEvaluationTest {
         assertThat(aggregates.get("VIDEO").successCount).isGreaterThan(0);
     }
 
-    private List<EvaluationCase> loadCases() throws Exception {
+    List<EvaluationCase> loadCases() throws Exception {
         try (InputStream input = getClass().getResourceAsStream("/gemini-evaluation-dataset.json")) {
             assertThat(input).isNotNull();
             return objectMapper.readValue(input, new TypeReference<>() {});
         }
     }
 
-    private Metrics evaluate(EvaluationCase expected, JsonNode actual, boolean videoMode) {
+    Metrics evaluate(EvaluationCase expected, JsonNode actual, boolean videoMode) {
         List<JsonNode> predictedIngredients = elements(actual.path("ingredients"));
         List<JsonNode> predictedSteps = elements(actual.path("steps"));
 

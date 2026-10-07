@@ -123,12 +123,33 @@ public class GeminiApiClient {
         }
     }
 
+    // Keep both prompt variants on one model; fallback would confound the comparison.
+    GenerationMeasurement generateVideoForPromptBenchmark(String prompt, String youtubeId, String title) throws Exception {
+        validateApiKey();
+        String youtubeUrl = buildYoutubeUrl(youtubeId);
+        if (youtubeUrl == null) throw new IllegalArgumentException("유효한 YouTube ID가 필요합니다.");
+        return requestRecipeMeasured(CANDIDATE_MODELS.get(0), prompt, youtubeUrl, youtubeId, title);
+    }
+
+    record GenerationMeasurement(String json, String model, Integer inputTokens, Integer outputTokens,
+                                 Integer thoughtTokens, Integer totalTokens, String finishReason) {}
+
+    private static Integer tokenCount(JsonNode usage, String field) {
+        return usage.hasNonNull(field) ? usage.path(field).intValue() : null;
+    }
+
     private String requestRecipe(
             String modelName,
             String prompt,
             String youtubeUrl,
             String youtubeId,
             String fallbackTitle
+    ) throws Exception {
+        return requestRecipeMeasured(modelName, prompt, youtubeUrl, youtubeId, fallbackTitle).json();
+    }
+
+    private GenerationMeasurement requestRecipeMeasured(
+            String modelName, String prompt, String youtubeUrl, String youtubeId, String fallbackTitle
     ) throws Exception {
         String url = String.format(GEMINI_URL_TEMPLATE, modelName, apiKey);
 
@@ -158,7 +179,12 @@ public class GeminiApiClient {
         String result = extractResponseText(response);
 
         log.info("Gemini ({}) AI 레시피 추출 성공: mode={}, youtubeId={}", modelName, analysisMode, youtubeId);
-        return result;
+        JsonNode root = objectMapper.readTree(response.getBody());
+        JsonNode usage = root.path("usageMetadata");
+        return new GenerationMeasurement(result, modelName,
+                tokenCount(usage, "promptTokenCount"), tokenCount(usage, "candidatesTokenCount"),
+                tokenCount(usage, "thoughtsTokenCount"), tokenCount(usage, "totalTokenCount"),
+                root.path("candidates").path(0).path("finishReason").asText("UNKNOWN"));
     }
 
     private String extractResponseText(ResponseEntity<String> response) throws Exception {

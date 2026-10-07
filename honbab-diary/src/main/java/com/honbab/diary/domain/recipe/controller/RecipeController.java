@@ -1,6 +1,7 @@
 package com.honbab.diary.domain.recipe.controller;
 
 import com.honbab.diary.domain.recipe.dto.RecipeDetailResponse;
+import com.honbab.diary.domain.recipe.dto.RecipeConversionProgressResponse;
 import com.honbab.diary.domain.recipe.dto.RecipeResponse;
 import com.honbab.diary.domain.recipe.service.AiRecipeService;
 import com.honbab.diary.domain.recipe.service.RecipeService;
@@ -12,6 +13,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.CacheControl;
 import org.springframework.web.bind.annotation.*;
 
 @Tag(name = "레시피", description = "AI 레시피 변환 / 검색 / 조회 API")
@@ -29,6 +31,13 @@ public class RecipeController {
             @PathVariable Long shortsId) {
         RecipeDetailResponse response = aiRecipeService.convertShortsToRecipe(shortsId);
         return ResponseEntity.ok(ApiResponse.ok(response));
+    }
+
+    @Operation(summary = "AI 레시피 변환 진행 단계", description = "현재 서버에서 실행 중인 작업의 단계입니다. 완료·실패는 변환 POST 응답으로 확인합니다.")
+    @GetMapping("/shorts/{shortsId}/recipe/progress")
+    public ResponseEntity<ApiResponse<RecipeConversionProgressResponse>> getConversionProgress(@PathVariable Long shortsId) {
+        return ResponseEntity.ok().cacheControl(CacheControl.noStore())
+                .body(ApiResponse.ok(aiRecipeService.getConversionProgress(shortsId)));
     }
 
     @Operation(summary = "레시피 상세 조회", description = "레시피의 상세 정보를 조회합니다.")

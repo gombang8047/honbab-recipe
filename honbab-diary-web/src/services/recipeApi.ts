@@ -30,6 +30,13 @@ export interface RecipeDetail {
   ingredients: Ingredient[];
 }
 
+export type RecipeConversionStage = 'IDLE' | 'PREPARING' | 'COMMENTS' | 'ANALYZING' | 'SAVING';
+
+export interface RecipeConversionProgress {
+  stage: RecipeConversionStage;
+  elapsedMs: number;
+}
+
 const MOCK_RECIPE: RecipeDetail = {
   id: 1,
   shortsId: 1,
@@ -59,6 +66,14 @@ const MOCK_RECIPE: RecipeDetail = {
 const recipeCache = new Map<number, RecipeDetail>();
 
 export const recipeApi = {
+  getConversionProgress: async (shortsId: number, signal?: AbortSignal): Promise<RecipeConversionProgress> => {
+    const res: any = await apiClient.get(`/shorts/${shortsId}/recipe/progress`, {
+      signal,
+      timeout: 3000,
+    });
+    return res.data || res;
+  },
+
   getCached: (recipeId: number): RecipeDetail | null => {
     return recipeCache.get(recipeId) || null;
   },
@@ -95,4 +110,3 @@ export const recipeApi = {
     return data;
   }
 };
-

@@ -88,11 +88,14 @@ class AiRecipeConcurrencyTest {
         try {
             Future<RecipeDetailResponse> leader = pool.submit(() -> service.convertShortsToRecipe(shorts.getId()));
             assertThat(entered.await(10, TimeUnit.SECONDS)).isTrue();
+            assertThat(service.getConversionProgress(shorts.getId()).stage().name()).isEqualTo("ANALYZING");
             List<Future<RecipeDetailResponse>> followers = new ArrayList<>();
             for (int i = 0; i < 7; i++) followers.add(pool.submit(() -> service.convertShortsToRecipe(shorts.getId())));
             awaitFollowers(7);
+            assertThat(service.getConversionProgress(shorts.getId()).stage().name()).isEqualTo("ANALYZING");
             release.countDown();
             RecipeDetailResponse result = leader.get(10, TimeUnit.SECONDS);
+            assertThat(service.getConversionProgress(shorts.getId()).stage().name()).isEqualTo("IDLE");
             for (Future<RecipeDetailResponse> follower : followers)
                 assertThat(follower.get(10, TimeUnit.SECONDS)).isSameAs(result);
             assertThat(result.getIngredients()).hasSize(1);
@@ -113,12 +116,28 @@ class AiRecipeConcurrencyTest {
     @DisplayName("댓글·Gemini 실행 시 트랜잭션과 Hikari 활성 DB 연결이 없다")
     void externalCallsReleaseDatabaseConnection() {
         Shorts shorts = newShorts();
-        when(youtube.getTopComment(anyString())).thenAnswer(call -> { assertExternalBoundary(); return "계란 1개"; });
+        assertThat(service.getConversionProgress(shorts.getId()).stage().name()).isEqualTo("IDLE");
+        List<String> databaseStages = new ArrayList<>();
+        // eq(Long) supplies a dummy 0 during stubbing. Do not invoke the existing DB lookup answer.
+        doAnswer(call -> {
+            databaseStages.add(service.getConversionProgress(shorts.getId()).stage().name());
+            assertThat(TransactionSynchronizationManager.isActualTransactionActive()).isTrue();
+            return shortsRepository.findById(shorts.getId()).orElseThrow();
+        }).when(shortsService).findShortsById(eq(shorts.getId()));
+        when(youtube.getTopComment(anyString())).thenAnswer(call -> {
+            assertExternalBoundary();
+            assertThat(service.getConversionProgress(shorts.getId()).stage().name()).isEqualTo("COMMENTS");
+            return "계란 1개";
+        });
         when(gemini.generateRecipeJson(anyString(), anyString(), anyString())).thenAnswer(call -> {
             assertExternalBoundary();
+            assertThat(service.getConversionProgress(shorts.getId()).stage().name()).isEqualTo("ANALYZING");
             return JSON;
         });
         assertThat(service.convertShortsToRecipe(shorts.getId()).getIngredients().get(0).getName()).isEqualTo("계란");
+        assertThat(databaseStages).containsExactly("PREPARING", "SAVING");
+        assertThat(service.getConversionProgress(shorts.getId()).stage().name()).isEqualTo("IDLE");
+        assertThat(service.getConversionProgress(shorts.getId()).elapsedMs()).isZero();
         assertThat(recipes.findByShortsId(shorts.getId())).isPresent();
         System.out.println("AI_TRANSACTION externalTransactionActive=false externalActiveConnections=0");
     }
@@ -163,6 +182,7 @@ class AiRecipeConcurrencyTest {
             assertThatThrownBy(() -> leader.get(10, TimeUnit.SECONDS)).hasCause(failure);
             assertThatThrownBy(() -> follower.get(10, TimeUnit.SECONDS)).hasCause(failure);
             assertThat(recipes.findByShortsId(shorts.getId())).isEmpty();
+            assertThat(service.getConversionProgress(shorts.getId()).stage().name()).isEqualTo("IDLE");
             // Restub without invoking the existing answer, which intentionally throws.
             doReturn(JSON).when(gemini).generateRecipeJson(anyString(), anyString(), anyString());
             assertThat(service.convertShortsToRecipe(shorts.getId()).getId()).isNotNull();
