@@ -90,6 +90,37 @@ tasks.named('test') {
     }
 }
 
+tasks.register('promptOptimizationBenchmark', Test) {
+    group = 'verification'
+    description = '실제 Gemini 영상 입력으로 기존/간소화 프롬프트의 시간·토큰·품질을 비교합니다 (유료 API 호출).'
+    testClassesDirs = sourceSets.test.output.classesDirs
+    classpath = sourceSets.test.runtimeClasspath
+    useJUnitPlatform()
+    filter { includeTestsMatching '*GeminiPromptOptimizationBenchmarkTest*' }
+    environment 'RUN_GEMINI_PROMPT_BENCHMARK', 'true'
+    maxParallelForks = 1
+    outputs.upToDateWhen { false }
+    testLogging {
+        showStandardStreams = false
+        events 'passed', 'failed', 'skipped'
+        exceptionFormat 'full'
+    }
+    finalizedBy 'promptOptimizationBenchmarkReport'
+}
+
+tasks.register('promptOptimizationBenchmarkReport') {
+    group = 'verification'
+    description = 'API를 재호출하지 않고 프롬프트 비교 테스트의 마지막 요약을 출력합니다.'
+    doLast {
+        def resultFile = file("${buildDir}/test-results/promptOptimizationBenchmark/TEST-com.honbab.diary.infra.gemini.GeminiPromptOptimizationBenchmarkTest.xml")
+        if (resultFile.exists()) {
+            def output = new XmlSlurper().parse(resultFile).'system-out'.text()
+            def summaryStart = output.indexOf('# 영상 레시피 프롬프트 간소화 비교 결과')
+            if (summaryStart >= 0) println '\n' + output.substring(summaryStart)
+        }
+    }
+}
+
 tasks.register('productMappingBenchmark', Test) {
     group = 'verification'
     description = '상품 매핑 반복 조회와 IN 일괄 조회 벤치마크를 실행합니다.'

@@ -1,12 +1,9 @@
 package com.honbab.diary.infra.gemini;
 
 
-import org.springframework.stereotype.Component;
-
 import java.util.Collection;
 
-@Component
-public class GeminiPromptBuilder {
+final class LegacyRecipePromptBuilder {
 
     public String buildRecipePrompt(String title, String description, String comments, Collection<String> tags) {
         StringBuilder sb = new StringBuilder();

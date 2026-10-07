@@ -469,6 +469,7 @@ function HomeContent() {
       {/* AI Conversion Processing Modal */}
       <AiConversionModal
         isOpen={!!convertingShorts}
+        shortsId={convertingShorts?.id}
         shortsTitle={convertingShorts?.title}
         isReady={isNavigatingToRecipe}
       />

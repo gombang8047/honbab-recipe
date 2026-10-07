@@ -50,6 +50,35 @@ class GeminiApiClientTest {
     }
 
     @Test
+    @DisplayName("프롬프트 비교 호출은 영상 입력과 동일 모델을 사용하고 실제 토큰 사용량을 반환한다")
+    void benchmarkReturnsUsageMetadata() throws Exception {
+        String response = """
+                {"candidates":[{"finishReason":"STOP","content":{"parts":[{"text":"{}"}]}}],
+                 "usageMetadata":{"promptTokenCount":100,"candidatesTokenCount":50,"thoughtsTokenCount":10,"totalTokenCount":160}}
+                """;
+        when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
+                .thenReturn(ResponseEntity.ok(response));
+        var result = geminiApiClient.generateVideoForPromptBenchmark("테스트", YOUTUBE_ID, "영상");
+        assertThat(result.model()).isEqualTo("gemini-3.5-flash-lite");
+        assertThat(result.inputTokens()).isEqualTo(100);
+        assertThat(result.outputTokens()).isEqualTo(50);
+        assertThat(result.thoughtTokens()).isEqualTo(10);
+        assertThat(result.totalTokens()).isEqualTo(160);
+        assertThat(result.finishReason()).isEqualTo("STOP");
+    }
+
+    @Test
+    @DisplayName("프롬프트 비교의 호출 실패는 다른 모델·텍스트 폴백으로 숨기지 않는다")
+    void benchmarkDoesNotFallback() {
+        when(restTemplate.postForEntity(anyString(), any(HttpEntity.class), eq(String.class)))
+                .thenThrow(new RuntimeException("테스트 API 오류"));
+        org.assertj.core.api.Assertions.assertThatThrownBy(() ->
+                geminiApiClient.generateVideoForPromptBenchmark("테스트", YOUTUBE_ID, "영상"))
+                .hasMessage("테스트 API 오류");
+        verify(restTemplate, times(1)).postForEntity(anyString(), any(HttpEntity.class), eq(String.class));
+    }
+
+    @Test
     @DisplayName("공개 YouTube URL과 텍스트 프롬프트를 멀티모달 요청으로 전달한다")
     @SuppressWarnings("unchecked")
     void sendsYoutubeVideoAndTextPrompt() {
